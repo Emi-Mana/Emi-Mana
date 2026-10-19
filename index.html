@@ -67,6 +67,7 @@ h2 { font-family: var(--font-serif); font-weight: 500; margin: 0; font-size: 1.0
 
 /* タブの中身 */
 .panel { overflow-y: auto; padding: 4px 16px 14px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.panel > * { flex-shrink: 0; }  /* 中身が多くても、カードがつぶれないようにする */
 
 /* タブバー */
 .tabs { display: grid; grid-template-columns: repeat(6, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
