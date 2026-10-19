@@ -9,16 +9,17 @@ const TOKEN = PropertiesService.getScriptProperties().getProperty("LINE_TOKEN");
 
 // Webサイトがデータを読みに来ると、ここが呼ばれる
 function doGet() {
-  const entries = sheet("記録", ["日付", "名前", "体重"]).getDataRange().getDisplayValues().slice(1)
+  const entries = rows("記録", ["日付", "名前", "体重"])
     .map(r => ({ date: r[0], name: r[1], kg: Number(r[2]) }));
 
   const cheers = {};
-  sheet("エール", ["日付", "名前", "ひとこと"]).getDataRange().getDisplayValues().slice(1)
+  rows("エール", ["日付", "名前", "ひとこと"])
     .forEach(r => { cheers[r[1]] = { date: r[0], text: r[2] }; });  // 最新の1件だけ残る
 
+  // 月は「2026/10/01」と表示されていても「2026-10」にそろえる
   const rewards = {};
   sheet("ごほうび", ["月（2026-10の形）", "ごほうび"]).getDataRange().getDisplayValues().slice(1)
-    .forEach(r => { rewards[r[0]] = r[1]; });
+    .forEach(r => { rewards[r[0].replace(/\//g, "-").slice(0, 7)] = r[1]; });
 
   const json = JSON.stringify({ entries: entries, cheers: cheers, rewards: rewards });
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
@@ -110,22 +111,27 @@ function today() {
   return Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd");
 }
 
+// 見出しを除いた行。1列目の日付は、シートが日付に変換していても「2026-10-19」の形にそろえる
+function rows(name, header) {
+  return sheet(name, header).getDataRange().getValues().slice(1).map(r => {
+    r[0] = r[0] instanceof Date ? Utilities.formatDate(r[0], "Asia/Tokyo", "yyyy-MM-dd") : String(r[0]);
+    return r;
+  });
+}
+
 // 同じ日・同じ人の記録があれば上書き、なければ追加
 function saveWeight(name, kg) {
-  const sh = sheet("記録", ["日付", "名前", "体重"]);
-  const rows = sh.getDataRange().getDisplayValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === today() && rows[i][1] === name) {
-      sh.getRange(i + 1, 3).setValue(kg);
-      return;
-    }
+  const list = rows("記録", ["日付", "名前", "体重"]);
+  const i = list.findIndex(r => r[0] === today() && r[1] === name);
+  if (i >= 0) {
+    sheet("記録", []).getRange(i + 2, 3).setValue(kg);  // +2 は見出しの1行と、1から数える分
+    return;
   }
-  sh.appendRow([today(), name, kg]);
+  sheet("記録", []).appendRow([today(), name, kg]);
 }
 
 function hasRecordToday(name) {
-  const rows = sheet("記録", ["日付", "名前", "体重"]).getDataRange().getDisplayValues();
-  return rows.some(r => r[0] === today() && r[1] === name);
+  return rows("記録", ["日付", "名前", "体重"]).some(r => r[0] === today() && r[1] === name);
 }
 
 function setName(userId, name) {
