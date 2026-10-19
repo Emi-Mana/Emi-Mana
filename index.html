@@ -346,7 +346,7 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
       <div><div class="eyebrow">Send</div><h2 id="cheerTo">エールを送る</h2></div>
       <textarea class="field cheer-input" id="cheerInput" maxlength="200" placeholder="相手へのひとこと"></textarea>
       <div class="row spread">
-        <span class="muted" id="cheerMsg">送ると、相手のLINEに通知が届きます。</span>
+        <span class="muted" id="cheerMsg">送ったエールは、相手のサイトのエールタブに届きます。</span>
         <button class="btn" id="cheerBtn" type="button">送る</button>
       </div>
     </div>
@@ -846,7 +846,7 @@ document.querySelectorAll("[data-me]").forEach(b => b.addEventListener("click", 
   render();
 }));
 
-// エールを送る（相手のLINEには Apps Script が通知する）
+// エールを送る（サイトのエールタブにだけ表示する）
 $("cheerBtn").addEventListener("click", () => {
   const text = $("cheerInput").value.trim();
   if (!me || !text || !API_URL) return;

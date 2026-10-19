@@ -47,9 +47,8 @@ function doPost(e) {
 // ===== エール =====
 // シート「エール履歴」：日時 / 送った人 / 受け取った人 / エール
 const CHEER_HEADER = ["日時", "送った人", "受け取った人", "エール"];
-const SITE_URL = "https://emi-mana.github.io/Emi-Mana/#cheer";
 
-// エールを保存して、相手のLINEに通知する
+// エールを保存する（LINEへの通知はしない。サイトのエールタブで見る）
 function sendCheer(from, text) {
   if (!PEOPLE[from]) return false;
   text = String(text || "").trim().slice(0, 200);
@@ -59,16 +58,7 @@ function sendCheer(from, text) {
   const at = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm");
   // 先頭の ' は、シートに日時へ自動変換させず文字のまま残すため
   sheet("エール履歴", CHEER_HEADER).appendRow(["'" + at, from, to, text]);
-
-  userIdsOf(to).forEach(id => push(id, from + "からエールが届きました\n「" + text + "」\n\n返事はこちらから\n" + SITE_URL));
   return true;
-}
-
-// その名前で登録しているLINEのID
-function userIdsOf(name) {
-  const members = {};
-  rows("メンバー", ["LINEのID", "名前"]).forEach(r => { members[r[0]] = r[1]; });
-  return Object.keys(members).filter(id => members[id] === name);
 }
 
 
@@ -113,7 +103,7 @@ function handleEvent(ev) {
       return;
     }
     sendCheer(name, message);
-    reply(ev.replyToken, "エールを送りました。");
+    reply(ev.replyToken, "エールを送りました。サイトのエールタブに表示されます。");
     return;
   }
 
