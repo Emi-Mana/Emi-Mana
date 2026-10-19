@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Emi &amp; Manato 減量チャレンジ</title>
+<link rel="icon" href="icon.jpg">
+<link rel="apple-touch-icon" href="icon.jpg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap">
+<style>
+/* レイアウト：スマホ1画面。上＝ヘッダー、中＝タブの中身、下＝タブバー。海辺のホテルのように余白と細い線で見せる */
+:root {
+  --bg: #F4F3EF;
+  --surface: #FFFFFF;
+  --ink: #24323A;
+  --muted: #7D8A90;
+  --line: #E0DDD5;
+  --sea: #4F8496;
+  --sand: #B0936A;
+  --sand-soft: #F1EBE0;
+  --emi: #B9707F;
+  --manato: #4F8496;
+  --good: #5E8F78;
+  --warn: #B98A5A;
+  /* 夕暮れの海の景色はテーマに関係なく固定色 */
+  --sky-top: #8FA9BC;
+  --sky-low: #E9C9AE;
+  --water: #4E7184;
+  --water-deep: #2F4A5A;
+  --glow: #FBEBD8;
+  --silhouette: #3B4E5E;
+  --font-serif: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-latin: "Cormorant Garamond", "Times New Roman", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
+  --radius: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111A1F; --surface: #18242B; --ink: #E8ECEC; --muted: #93A2A8; --line: #2A3A43;
+    --sea: #7FB0C0; --sand: #D2B68C; --sand-soft: #23292A; --emi: #D9939F; --manato: #7FB0C0;
+    --good: #85B9A0; --warn: #D9AE7E; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111A1F; --surface: #18242B; --ink: #E8ECEC; --muted: #93A2A8; --line: #2A3A43;
+  --sea: #7FB0C0; --sand: #D2B68C; --sand-soft: #23292A; --emi: #D9939F; --manato: #7FB0C0;
+  --good: #85B9A0; --warn: #D9AE7E; color-scheme: dark;
+}
+
+html, body { height: 100%; }
+* { box-sizing: border-box; }
+body { margin: 0; padding-top: env(safe-area-inset-top, 0px); }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.7; overflow: hidden; letter-spacing: 0.02em; }
+.app { height: 100%; max-width: 520px; margin: 0 auto; display: grid; grid-template-rows: auto 1fr auto; }
+h2 { font-family: var(--font-serif); font-weight: 500; margin: 0; font-size: 1.05rem; letter-spacing: 0.08em; }
+.eyebrow { font-family: var(--font-latin); font-style: italic; color: var(--sand); font-size: 0.95rem; letter-spacing: 0.06em; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); font-size: 0.78rem; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ヘッダー */
+.top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+.top-title { font-family: var(--font-latin); font-size: 1.35rem; font-weight: 500; letter-spacing: 0.08em; flex: 1; }
+
+/* タブの中身 */
+.panel { overflow-y: auto; padding: 4px 16px 14px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+/* タブバー */
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tab { border: 0; background: none; padding: 10px 0 8px; font: inherit; font-size: 0.68rem; letter-spacing: 0.12em; color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.tab svg { width: 20px; height: 20px; }
+.tab.on { color: var(--ink); }
+.tab.on svg { color: var(--sand); }
+
+/* ===== 海の向こうの夢の国 ===== */
+.scene { position: relative; overflow: hidden; border-radius: var(--radius); padding: 22px 16px 0; color: var(--glow);
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-low) 100%); }
+.star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: var(--glow); opacity: 0.7; animation: twinkle 4s infinite ease-in-out; }
+@keyframes twinkle { 50% { opacity: 0.15; } }
+.scene-text { position: relative; text-align: center; }
+.magic { font-family: var(--font-latin); font-style: italic; letter-spacing: 0.12em; font-size: 1rem; }
+.count { font-family: var(--font-latin); font-weight: 500; font-size: 3.6rem; line-height: 1.05; }
+.count small { font-family: var(--font-serif); font-size: 0.95rem; }
+.castle { position: relative; display: block; width: 100%; height: auto; margin-top: 2px; }
+
+/* チケット */
+.ticket { position: relative; background: var(--surface); border: 1px solid var(--sand); outline: 1px solid var(--sand); outline-offset: -6px;
+  border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.ticket-title { font-family: var(--font-latin); font-size: 1.3rem; letter-spacing: 0.14em; color: var(--sand); }
+.stamp { width: 58px; height: 58px; border-radius: 50%; border: 1px dashed var(--line); display: grid; place-items: center; font-family: var(--font-latin); font-size: 0.8rem; text-align: center; color: var(--muted); line-height: 1.2; }
+.stamp.done { border: 3px double var(--sand); color: var(--sand); transform: rotate(-10deg); }
+.big { font-family: var(--font-latin); font-size: 2.3rem; font-weight: 500; line-height: 1; }
+.big small { font-size: 0.9rem; font-family: var(--font-body); color: var(--muted); }
+
+/* バー */
+.bar { height: 3px; background: var(--line); overflow: hidden; }
+.bar span { display: block; height: 100%; transition: width 0.8s; }
+.bar-magic span { background: linear-gradient(90deg, var(--sea), var(--sand)); }
+
+/* ボタンと入力 */
+button, input, textarea { font: inherit; color: inherit; }
+.btn { border: 1px solid var(--ink); border-radius: var(--radius); padding: 10px 18px; background: var(--ink); color: var(--surface); letter-spacing: 0.14em; font-size: 0.85rem; cursor: pointer; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 2px 10px; border-radius: var(--radius); cursor: pointer; font-size: 0.72rem; }
+.who { flex: 1; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 8px; letter-spacing: 0.12em; color: var(--muted); cursor: pointer; font-family: var(--font-latin); font-size: 1.1rem; }
+.who.on[data-who="emi"] { border-bottom: 2px solid var(--emi); color: var(--emi); }
+.who.on[data-who="manato"] { border-bottom: 2px solid var(--manato); color: var(--manato); }
+.field { border: 0; border-bottom: 1px solid var(--line); background: transparent; border-radius: 0; padding: 8px 4px; min-width: 0; }
+.kg-input { flex: 1; font-family: var(--font-latin); font-size: 1.8rem; }
+textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px; border: 1px solid var(--line); padding: 10px; font-family: var(--font-serif); }
+:focus-visible { outline: 2px solid var(--sand); outline-offset: 2px; }
+
+/* チップ */
+.chip { display: inline-block; padding: 1px 10px; border: 1px solid var(--line); border-radius: 99px; font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted); }
+.chip.good { border-color: var(--good); color: var(--good); }
+.chip.warn { border-color: var(--warn); color: var(--warn); }
+.chip.gold { border-color: var(--sand); background: var(--sand); color: var(--surface); }
+
+/* グラフタブ */
+.person-name { font-family: var(--font-latin); font-size: 1.6rem; letter-spacing: 0.08em; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat { padding: 8px 4px; text-align: center; }
+.stat + .stat { border-left: 1px solid var(--line); }
+.stat b { display: block; font-family: var(--font-latin); font-size: 1.3rem; font-weight: 500; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-size: 10px; font-family: var(--font-body); }
+
+/* 履歴とエール */
+.history { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.history td { padding: 7px 4px; border-top: 1px solid var(--line); }
+.history td:last-child { text-align: right; }
+.cheer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; font-family: var(--font-serif); }
+/* カレンダー */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-head { font-size: 0.68rem; color: var(--muted); }
+.day { aspect-ratio: 1; max-width: 100%; border-radius: var(--radius); font-size: 0.78rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.day.both { background: var(--sand-soft); }
+.day.today { outline: 1px solid var(--sand); }
+.day.off { color: var(--line); }
+.dots { display: flex; gap: 3px; height: 6px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+/* ごほうび */
+.reward { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.reward-month { font-family: var(--font-latin); font-size: 1.2rem; }
+.reward-input { font-family: var(--font-serif); font-size: 0.95rem; width: 100%; box-sizing: border-box; }
+
+.notice { background: var(--sand-soft); border-radius: var(--radius); padding: 8px 12px; font-size: 0.8rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .star { animation: none; }
+  .bar span { transition: none; }
+}
+.howto { font-family: var(--font-latin); font-size: 1.4rem; background: var(--sand-soft); border-radius: var(--radius); padding: 6px 12px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="top">
+    <img class="avatar" src="icon.jpg" alt="Emiとmanato">
+    <span class="top-title">Emi &amp; Manato</span>
+    <span class="chip" id="headChip">--</span>
+  </header>
+
+  <!-- タブ1：ホーム -->
+  <main class="panel" id="tab-home">
+    <div class="notice" id="loadNotice" hidden></div>
+    <div class="scene" id="scene">
+      <div class="scene-text">
+        <div class="magic">Until the Dream Land</div>
+        <div class="count num"><span id="daysLeft">--</span><small> 日</small></div>
+        <div class="magic" style="font-size:0.85rem">— 31 December 2026 —</div>
+      </div>
+      <svg class="castle" viewBox="0 0 320 100" aria-hidden="true">
+        <circle cx="236" cy="52" r="14" fill="var(--glow)" opacity="0.9"/>
+        <g fill="var(--silhouette)" opacity="0.85">
+          <rect x="70" y="44" width="40" height="12"/>
+          <rect x="74" y="36" width="5" height="20"/><polygon points="73,37 76.5,28 80,37"/>
+          <rect x="101" y="36" width="5" height="20"/><polygon points="100,37 103.5,28 107,37"/>
+          <rect x="86" y="30" width="8" height="26"/><polygon points="85,31 90,18 95,31"/>
+          <rect x="0" y="52" width="320" height="4"/>
+        </g>
+        <rect x="0" y="56" width="320" height="44" fill="var(--water)"/>
+        <rect x="0" y="80" width="320" height="20" fill="var(--water-deep)"/>
+        <g stroke="var(--glow)" stroke-width="1.2" opacity="0.7">
+          <line x1="222" y1="62" x2="250" y2="62"/><line x1="228" y1="68" x2="244" y2="68"/>
+          <line x1="232" y1="74" x2="240" y2="74"/><line x1="30" y1="86" x2="70" y2="86"/>
+          <line x1="150" y1="92" x2="200" y2="92"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="ticket">
+      <div class="row spread">
+        <span class="ticket-title">Dream Pass</span>
+        <span class="chip" id="ticketStatus">未発券</span>
+      </div>
+      <div class="row spread">
+        <div>
+          <div class="muted">2人で減らした合計</div>
+          <div class="big num"><span id="teamLost">0.0</span><small> / 9.0 kg</small></div>
+        </div>
+        <div class="row">
+          <div class="stamp" id="stamp-emi">Emi<br>未達</div>
+          <div class="stamp" id="stamp-manato">Manato<br>未達</div>
+        </div>
+      </div>
+      <div class="bar bar-magic"><span id="teamBar" style="width:0%"></span></div>
+      <div class="muted">2人ともクリアでパス発券。1人でも未達だと行けません。</div>
+    </div>
+
+    <div class="row" id="todayChips"></div>
+  </main>
+
+  <!-- タブ2：記録 -->
+  <main class="panel" id="tab-log" hidden>
+    <div class="card">
+      <div><div class="eyebrow">Today's Weight</div><h2>記録はLINEから</h2></div>
+      <div class="row"><span class="howto num">53.2</span><span class="muted">公式アカウントに数字を送るだけ。同じ日は上書きされます。</span></div>
+      <div class="row"><span class="howto" style="font-size:1rem">エール がんばろう！</span><span class="muted">相手へのひとこと</span></div>
+    </div>
+    <div class="card">
+      <div><div class="eyebrow">Recent</div><h2>最近の記録</h2></div>
+      <table class="history num"><tbody id="historyBody"></tbody></table>
+      <div class="muted" id="historyEmpty">まだ記録がありません。</div>
+    </div>
+  </main>
+
+  <!-- タブ3：グラフ -->
+  <main class="panel" id="tab-chart" hidden>
+    <div class="row">
+      <button class="who" data-who="emi" data-role="view" type="button">Emi</button>
+      <button class="who" data-who="manato" data-role="view" type="button">Manato</button>
+    </div>
+    <div class="card" id="personCard"></div>
+    <div class="muted">判定は7日平均。点線は12/31に間に合うペースです。</div>
+  </main>
+
+  <!-- タブ：カレンダーとごほうび -->
+  <main class="panel" id="tab-cal" hidden>
+    <div class="card">
+      <div class="row spread">
+        <button class="btn-ghost" id="prevMonth" type="button" aria-label="前の月">‹</button>
+        <div style="text-align:center"><div class="eyebrow" id="monthEn">October</div><h2 id="monthJa">10月</h2></div>
+        <button class="btn-ghost" id="nextMonth" type="button" aria-label="次の月">›</button>
+      </div>
+      <div class="cal" id="calGrid"></div>
+      <div class="row spread muted">
+        <span><span class="dot" style="background:var(--emi)"></span> Emi　<span class="dot" style="background:var(--manato)"></span> Manato</span>
+        <span id="bothCount">ふたりそろった日 0日</span>
+      </div>
+    </div>
+    <div class="card">
+      <div><div class="eyebrow">Monthly Rewards</div><h2>毎月のごほうび</h2></div>
+      <div id="rewardList" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div class="muted">月末の7日平均で判定。目安は週0.4kgのペースで、急に落とさないのでリバウンドしにくい設定です。ごほうびはスプレッドシートの「ごほうび」シートで書き換えられます。</div>
+    </div>
+  </main>
+
+  <!-- タブ4：エール -->
+  <main class="panel" id="tab-cheer" hidden>
+    <div><div class="eyebrow">Letters</div><h2>ふたりのひとこと</h2></div>
+    <div id="cheerList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="muted">LINEで「エール ○○」と送ると、ここに表示されます。</div>
+  </main>
+
+  <nav class="tabs">
+    <button class="tab on" data-tab="home" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V10l4-6 4 6 4-6 4 6v11z"/></svg>ホーム</button>
+    <button class="tab" data-tab="log" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12h8M12 8v8"/></svg>記録</button>
+    <button class="tab" data-tab="chart" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18l5-6 4 3 7-9"/></svg>グラフ</button>
+    <button class="tab" data-tab="cal" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>暦</button>
+    <button class="tab" data-tab="cheer" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>エール</button>
+  </nav>
+</div>
+
+<script>
+// ===== 設定 =====
+// Apps Scriptの「ウェブアプリのURL」（…/exec）をここに貼る
+const API_URL = "";
+const START = "2026-10-13";
+const END = "2026-12-31";
+const PEOPLE = {
+  emi:    { name: "Emi",    start: 53.5, goal: 49.0, color: "var(--emi)" },
+  manato: { name: "Manato", start: 71.5, goal: 67.0, color: "var(--manato)" }
+};
+const MILESTONES = [1, 2, 3, 4, 4.5];
+// 月ごとの目安：スタートからの減量kg（週0.4kgペース）とごほうびの初期値
+const MONTHS = [
+  { key: "2026-10", ja: "10月", en: "October",  end: "2026-10-31", lose: 1.0, reward: "海の見えるカフェでゆっくりお茶" },
+  { key: "2026-11", ja: "11月", en: "November", end: "2026-11-30", lose: 2.7, reward: "葉山の海辺で日帰りデート" },
+  { key: "2026-12", ja: "12月", en: "December", end: "2026-12-31", lose: 4.5, reward: "夢の国へ！" }
+];
+const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+
+// ===== 状態 =====
+let entries = { emi: [], manato: [] };   // [{date, kg}] 日付順
+let cheers = {};                          // { emi: {text, date}, ... }
+let view = load("view", "emi");            // グラフで見る人
+let rewards = {};                         // { "2026-10": "ごほうびの文" }
+let calIndex = Math.min(Math.max(MONTHS.findIndex(m => today() <= m.end), 0), MONTHS.length - 1);
+
+// ===== 小道具 =====
+function load(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; } }
+function save(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+function pad(n) { return String(n).padStart(2, "0"); }
+function today() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function daysBetween(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 86400000); }
+function addDays(s, n) { return new Date(Date.parse(s) + n * 86400000).toISOString().slice(0, 10); }
+function shortDate(s) { return Number(s.slice(5, 7)) + "/" + Number(s.slice(8, 10)); }
+function other(key) { return key === "emi" ? "manato" : "emi"; }
+function $(id) { return document.getElementById(id); }
+
+// ===== 計算 =====
+function paceTarget(p, date) {
+  const total = daysBetween(START, END);
+  const done = Math.min(Math.max(daysBetween(START, date), 0), total);
+  return p.start - (p.start - p.goal) * done / total;
+}
+
+function summary(key) {
+  const p = PEOPLE[key];
+  const list = entries[key];
+  const last = list[list.length - 1];
+  const latest = last ? last.kg : p.start;
+  const lastDate = last ? last.date : START;
+  const week = list.filter(e => daysBetween(e.date, lastDate) < 7);
+  const avg7 = week.length ? week.reduce((s, e) => s + e.kg, 0) / week.length : latest;
+  const best = list.length ? Math.min(...list.map(e => e.kg)) : p.start;
+  return {
+    latest, avg7, best,
+    gap: avg7 - paceTarget(p, lastDate),  // マイナスなら先行
+    progress: Math.min(Math.max((p.start - latest) / (p.start - p.goal), 0), 1),
+    cleared: latest <= p.goal,
+    streak: streak(list)
+  };
+}
+
+function streak(list) {
+  const dates = new Set(list.map(e => e.date));
+  let day = dates.has(today()) ? today() : addDays(today(), -1);
+  let count = 0;
+  while (dates.has(day)) { count++; day = addDays(day, -1); }
+  return count;
+}
+
+// ===== 描画 =====
+function render() {
+  const s = { emi: summary("emi"), manato: summary("manato") };
+  $("daysLeft").textContent = Math.max(daysBetween(today(), END), 0);
+  renderTicket(s);
+  renderToday();
+  renderPerson(view, s[view]);
+  renderHistory();
+  renderCheers();
+  renderCalendar();
+  renderRewards();
+  document.querySelectorAll(".who").forEach(b => b.classList.toggle("on", b.dataset.who === view));
+}
+
+function renderTicket(s) {
+  let lost = 0;
+  for (const key in PEOPLE) lost += Math.max(PEOPLE[key].start - s[key].latest, 0);
+  $("teamLost").textContent = lost.toFixed(1);
+  $("teamBar").style.width = Math.min(lost / 9 * 100, 100) + "%";
+
+  for (const key in PEOPLE) {
+    const el = $("stamp-" + key);
+    el.classList.toggle("done", s[key].cleared);
+    el.innerHTML = PEOPLE[key].name + "<br>" + (s[key].cleared ? "クリア" : "未達");
+  }
+  const both = s.emi.cleared && s.manato.cleared;
+  $("ticketStatus").textContent = both ? "発券！" : "未発券";
+  $("ticketStatus").className = both ? "chip gold" : "chip";
+}
+
+function renderToday() {
+  const t = today();
+  let html = "";
+  let waiting = 0;
+  for (const key in PEOPLE) {
+    const done = entries[key].some(e => e.date === t);
+    if (!done) waiting++;
+    html += '<span class="chip ' + (done ? "good" : "") + '">' + PEOPLE[key].name + (done ? " 今日 記録済み" : " 今日 まだ") + "</span>";
+  }
+  $("todayChips").innerHTML = html;
+  $("headChip").textContent = waiting ? "記録待ち " + waiting + "人" : "今日 2人とも記録済み";
+  $("headChip").className = waiting ? "chip warn" : "chip good";
+}
+
+function renderPerson(key, s) {
+  const p = PEOPLE[key];
+  let pace;
+  if (s.cleared) pace = '<span class="chip gold">目標クリア</span>';
+  else if (Math.abs(s.gap) < 0.05) pace = '<span class="chip good">ペース通り</span>';
+  else if (s.gap < 0) pace = '<span class="chip good">ペースより ' + Math.abs(s.gap).toFixed(1) + "kg 先行</span>";
+  else pace = '<span class="chip warn">ペースより ' + s.gap.toFixed(1) + "kg 遅れ</span>";
+
+  const badges = MILESTONES.map(m =>
+    '<span class="chip ' + (p.start - s.best >= m ? "gold" : "") + '">-' + m + "kg</span>"
+  ).join(" ");
+
+  $("personCard").innerHTML =
+    '<div class="row spread"><span class="person-name" style="color:' + p.color + '">' + p.name + "</span>" + pace + "</div>" +
+    '<div class="row spread"><div class="big num">' + s.latest.toFixed(1) + '<small> kg</small></div>' +
+    '<div class="muted">目標 ' + p.goal.toFixed(1) + ' kg<br>あと <b class="num">' + Math.max(s.latest - p.goal, 0).toFixed(1) + "</b> kg</div></div>" +
+    '<div class="bar"><span style="width:' + (s.progress * 100) + "%;background:" + p.color + '"></span></div>' +
+    '<div class="stats num">' +
+      '<div class="stat"><span class="muted">7日平均</span><b>' + s.avg7.toFixed(1) + "</b></div>" +
+      '<div class="stat"><span class="muted">最低記録</span><b>' + s.best.toFixed(1) + "</b></div>" +
+      '<div class="stat"><span class="muted">連続記録</span><b>' + s.streak + "日</b></div>" +
+    "</div>" + chartSvg(key) + '<div class="row">' + badges + "</div>";
+}
+
+// 体重グラフ：実線＝記録、点線＝12/31に間に合うペース
+function chartSvg(key) {
+  const p = PEOPLE[key];
+  const W = 320, H = 130, L = 34, R = 8, T = 10, B = 22;
+  const days = daysBetween(START, END);
+  const top = p.start + 1, bottom = p.goal - 1;
+  const clamp = kg => Math.min(Math.max(kg, bottom), top);
+  const x = d => L + (W - L - R) * daysBetween(START, d) / days;
+  const y = kg => T + (H - T - B) * (top - clamp(kg)) / (top - bottom);
+
+  const list = entries[key].filter(e => e.date >= START);
+  const points = list.map(e => x(e.date).toFixed(1) + "," + y(e.kg).toFixed(1)).join(" ");
+  const last = list[list.length - 1];
+  const dot = last ? '<circle cx="' + x(last.date) + '" cy="' + y(last.kg) + '" r="4" fill="' + p.color + '"/>' : "";
+
+  return '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + p.name + 'の体重の推移">' +
+    '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(p.goal) + '" y2="' + y(p.goal) + '" stroke="var(--sand)"/>' +
+    '<line x1="' + x(START) + '" y1="' + y(p.start) + '" x2="' + x(END) + '" y2="' + y(p.goal) + '" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>' +
+    '<polyline points="' + points + '" fill="none" stroke="' + p.color + '" stroke-width="2.5" stroke-linejoin="round"/>' + dot +
+    '<text x="2" y="' + (y(p.start) + 4) + '">' + p.start.toFixed(1) + "</text>" +
+    '<text x="2" y="' + (y(p.goal) + 4) + '">' + p.goal.toFixed(1) + "</text>" +
+    '<text x="' + L + '" y="' + (H - 6) + '">' + shortDate(START) + "</text>" +
+    '<text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + shortDate(END) + "</text></svg>";
+}
+
+function renderHistory() {
+  const all = [];
+  for (const key in PEOPLE) entries[key].forEach(e => all.push({ key, ...e }));
+  all.sort((a, b) => (a.date < b.date ? 1 : -1));
+  $("historyEmpty").hidden = all.length > 0;
+  $("historyBody").innerHTML = all.slice(0, 10).map(e =>
+    "<tr><td>" + shortDate(e.date) + '</td><td style="color:' + PEOPLE[e.key].color + '">' + PEOPLE[e.key].name +
+    "</td><td>" + e.kg.toFixed(1) + " kg</td></tr>"
+  ).join("");
+}
+
+function renderCheers() {
+  const box = $("cheerList");
+  box.innerHTML = "";
+  for (const key in PEOPLE) {
+    const c = cheers[key];
+    if (!c) continue;
+    const div = document.createElement("div");
+    div.className = "cheer";
+    div.innerHTML = '<div class="muted"></div><div></div>';
+    div.children[0].textContent = PEOPLE[key].name + " → " + PEOPLE[other(key)].name + "（" + shortDate(c.date) + "）";
+    div.children[1].textContent = c.text;
+    box.appendChild(div);
+  }
+  if (!box.children.length) box.innerHTML = '<div class="muted">まだエールはありません。</div>';
+}
+
+// ===== カレンダー =====
+function loggedOn(key, date) { return entries[key].some(e => e.date === date); }
+
+function renderCalendar() {
+  const m = MONTHS[calIndex];
+  $("monthEn").textContent = m.en;
+  $("monthJa").textContent = m.ja;
+  $("prevMonth").disabled = calIndex === 0;
+  $("nextMonth").disabled = calIndex === MONTHS.length - 1;
+
+  const year = Number(m.key.slice(0, 4));
+  const month = Number(m.key.slice(5, 7));
+  const firstWeekday = new Date(year, month - 1, 1).getDay();
+  const days = Number(m.end.slice(8, 10));
+
+  let html = WEEK.map(w => '<div class="cal-head">' + w + "</div>").join("");
+  for (let i = 0; i < firstWeekday; i++) html += "<div></div>";
+
+  let both = 0;
+  for (let d = 1; d <= days; d++) {
+    const date = m.key + "-" + pad(d);
+    const emi = loggedOn("emi", date);
+    const manato = loggedOn("manato", date);
+    if (emi && manato) both++;
+    let cls = "day";
+    if (emi && manato) cls += " both";
+    if (date === today()) cls += " today";
+    if (date < START || date > today()) cls += " off";
+    html += '<div class="' + cls + '"><span class="num">' + d + '</span><span class="dots">' +
+      (emi ? '<span class="dot" style="background:var(--emi)"></span>' : "") +
+      (manato ? '<span class="dot" style="background:var(--manato)"></span>' : "") + "</span></div>";
+  }
+  $("calGrid").innerHTML = html;
+  $("bothCount").textContent = "ふたりそろった日 " + both + "日";
+}
+
+// ===== 月ごとのごほうび =====
+// ある日までの最新記録から7日分の平均（記録がなければ null）
+function avgUntil(key, date) {
+  const list = entries[key].filter(e => e.date <= date);
+  if (!list.length) return null;
+  const lastDate = list[list.length - 1].date;
+  const week = list.filter(e => daysBetween(e.date, lastDate) < 7);
+  return week.reduce((s, e) => s + e.kg, 0) / week.length;
+}
+
+function renderRewards() {
+  $("rewardList").innerHTML = MONTHS.map(m => {
+    let okCount = 0;
+    const targets = Object.keys(PEOPLE).map(key => {
+      const p = PEOPLE[key];
+      const target = p.start - m.lose;
+      const avg = avgUntil(key, m.end);
+      if (avg !== null && avg <= target + 0.001) okCount++;
+      return p.name + " " + target.toFixed(1) + "kg";
+    }).join(" ・ ");
+
+    let chip = '<span class="chip">これから</span>';
+    if (okCount === 2) chip = '<span class="chip gold">達成</span>';
+    else if (today() > m.end) chip = '<span class="chip warn">未達</span>';
+    else if (today() >= m.key + "-01") chip = '<span class="chip good">挑戦中</span>';
+
+    return '<div class="reward"><div class="row spread"><span class="reward-month">' + m.en + "</span>" + chip + "</div>" +
+      '<div class="muted">目安 ' + targets + " 以下</div>" +
+      '<div class="reward-input" id="reward-' + m.key + '"></div></div>';
+  }).join("");
+
+  // ごほうびの文は textContent で安全に入れる
+  MONTHS.forEach(m => { $("reward-" + m.key).textContent = rewards[m.key] || m.reward; });
+}
+
+// 夕暮れの空にうっすら星を置く
+function makeSky() {
+  const scene = $("scene");
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement("span");
+    s.className = "star";
+    s.style.left = Math.random() * 100 + "%";
+    s.style.top = Math.random() * 35 + "%";
+    s.style.animationDelay = Math.random() * 4 + "s";
+    scene.appendChild(s);
+  }
+}
+
+// ===== 操作 =====
+function showTab(name) {
+  document.querySelectorAll(".panel").forEach(p => { p.hidden = p.id !== "tab-" + name; });
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.tab === name));
+  save("tab", name);
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
+
+document.querySelectorAll(".who").forEach(b => b.addEventListener("click", () => {
+  view = b.dataset.who;
+  save("view", view);
+  render();
+}));
+
+$("prevMonth").addEventListener("click", () => { calIndex = Math.max(calIndex - 1, 0); renderCalendar(); });
+$("nextMonth").addEventListener("click", () => { calIndex = Math.min(calIndex + 1, MONTHS.length - 1); renderCalendar(); });
+
+// ===== 起動とデータ読み込み =====
+// スプレッドシートの名前は「Emi」「Manato」、ページの中では「emi」「manato」
+async function loadData() {
+  if (!API_URL) {
+    showNotice("Apps ScriptのURLがまだ設定されていません。");
+    return;
+  }
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+
+    entries = { emi: [], manato: [] };
+    data.entries.forEach(e => {
+      const key = String(e.name).toLowerCase();
+      if (entries[key] && e.kg > 0) entries[key].push({ date: e.date, kg: e.kg });
+    });
+    for (const key in entries) entries[key].sort((a, b) => (a.date < b.date ? -1 : 1));
+
+    cheers = {};
+    for (const name in data.cheers) cheers[name.toLowerCase()] = data.cheers[name];
+    rewards = data.rewards || {};
+
+    $("loadNotice").hidden = true;
+    render();
+  } catch (e) {
+    showNotice("記録を読み込めませんでした。少し待ってから開き直してください。");
+  }
+}
+
+function showNotice(text) {
+  $("loadNotice").textContent = text;
+  $("loadNotice").hidden = false;
+}
+
+makeSky();
+showTab(load("tab", "home"));
+render();
+loadData();
+// 画面に戻ってきたときに最新を読み直す
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadData(); });
+</script>
+</body>
+</html>
