@@ -274,6 +274,51 @@ function getName(userId) {
 }
 
 
+// ===== 毎朝6時の通知 =====
+// 最初に1回だけ、エディタで setupMorningReminder を選んで「実行」する
+function setupMorningReminder() {
+  // 同じ通知が2つできないように、前のものを消してから作る
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === "morningReminder")
+    .forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger("morningReminder").timeBased()
+    .atHour(6).nearMinute(0).everyDays(1).inTimezone("Asia/Tokyo").create();
+}
+
+// 登録している人それぞれに、朝のメッセージを送る
+function morningReminder() {
+  const days = Math.ceil((new Date(END + "T00:00:00+09:00") - new Date()) / 86400000);
+
+  // LINEのID → 名前（同じIDは最後に登録した名前を使う）
+  const members = {};
+  rows("メンバー", ["LINEのID", "名前"]).forEach(r => { if (PEOPLE[r[1]]) members[r[0]] = r[1]; });
+
+  for (const userId in members) {
+    const name = members[userId];
+    const lines = ["おはようございます、" + name + "さん。", "今日の体重を数字で送ってください（例：" + PEOPLE[name].goal.toFixed(1) + "）"];
+    const last = lastWeight(name);
+    if (last) lines.push("目標まであと " + Math.max(last - PEOPLE[name].goal, 0).toFixed(1) + "kg");
+    if (days > 0) lines.push("夢の国まで あと" + days + "日");
+    push(userId, lines.join("\n"));
+  }
+}
+
+// その人のいちばん新しい体重
+function lastWeight(name) {
+  const list = rows("記録", ["日付", "名前", "体重"]).filter(r => r[1] === name).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  return list.length ? Number(list[list.length - 1][2]) : null;
+}
+
+function push(userId, text) {
+  UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + TOKEN },
+    payload: JSON.stringify({ to: userId, messages: [{ type: "text", text: text }] })
+  });
+}
+
+
 // ===== LINEへの返信 =====
 function reply(replyToken, text) {
   UrlFetchApp.fetch("https://api.line.me/v2/bot/message/reply", {
