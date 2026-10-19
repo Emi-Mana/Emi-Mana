@@ -165,9 +165,20 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
 .opt { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 12px; font: inherit; font-size: 0.78rem; color: var(--ink); cursor: pointer; }
 .opt.on { border-color: var(--sand); background: var(--sand); color: var(--surface); }
 .opt:disabled { color: var(--muted); opacity: 0.6; cursor: default; }
+.gift { border-color: var(--sand); }
+.choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.choice { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 6px; font: inherit; color: inherit;
+  cursor: pointer; display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0; }
+.choice.on { border: 2px solid var(--sand); padding: 5px; }
+.choice b { font-size: 0.8rem; font-weight: 500; line-height: 1.4; }
+.choice small { font-size: 0.68rem; color: var(--muted); line-height: 1.5; }
+.dir { font-size: 0.66rem; color: var(--sand); letter-spacing: 0.08em; }
+.mystery { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto; border: 1px dashed var(--sand); border-radius: 50%;
+  font-family: var(--font-latin); font-size: 2rem; color: var(--sand); }
+.story-log { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
 
 /* ごはん */
-.tips { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem; }
+.tip { margin: 0; font-family: var(--font-serif); font-size: 1rem; line-height: 1.9; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -244,6 +255,7 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
       <button class="who" data-who="manato" type="button">Manato</button>
     </div>
     <div class="card" id="charaCard">
+      <div class="eyebrow" id="chapterName">Prologue</div>
       <div class="stage" id="charaStage"></div>
       <div class="row spread">
         <span class="lv">Lv.<b class="num" id="lvNum">20</b></span>
@@ -252,11 +264,15 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
       <div class="bar exp"><span id="expBar" style="width:0%"></span></div>
       <div class="muted num" id="expText"></div>
       <div class="stats num" id="charaStats"></div>
-      <div class="muted" id="nextUnlock"></div>
     </div>
+    <div class="card gift" id="giftCard"></div>
     <div class="card" id="dressCard">
       <div><div class="eyebrow">Dress Up</div><h2>着せ替え</h2></div>
       <div id="dressSlots" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+    <div class="card">
+      <div><div class="eyebrow">Story</div><h2>これまでの物語</h2></div>
+      <ol class="story-log" id="storyLog"></ol>
     </div>
     <div class="muted" id="dressNote"></div>
     <div class="row muted">このスマホは
@@ -274,7 +290,8 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
     </div>
     <div class="card">
       <div><div class="eyebrow" id="foodDay">Today</div><h2 id="foodTitle">--</h2></div>
-      <ul class="tips" id="foodTips"></ul>
+      <p class="tip" id="foodTip"></p>
+      <div class="muted">状態は体重の動きで変わります。LINEの返信にも同じアドバイスが届きます。</div>
     </div>
     <div class="muted" id="foodNote"></div>
   </main>
@@ -359,7 +376,9 @@ let entries = { emi: [], manato: [] };   // [{date, kg}] 日付順
 let cheers = {};                          // { emi: {text, date}, ... }
 let view = load("view", "emi");            // グラフで見る人
 let rewards = {};                         // { "2026-10": "ごほうびの文" }
-let styles = {};                          // { emi: {outfit, hair, item, bg}, manato: {...} }
+let avatars = { emi: { picks: {}, equip: {} }, manato: { picks: {}, equip: {} } };  // 受け取ったアイテムと着ているもの
+let chosen = -1;                          // 受け取り画面で選んでいる番号
+let advice = {};                          // { Emi: {state, label, tip}, Manato: {...} }
 let me = load("me", "");                  // このスマホの持ち主
 let calIndex = Math.min(Math.max(MONTHS.findIndex(m => today() <= m.end), 0), MONTHS.length - 1);
 
@@ -503,100 +522,149 @@ function chartSvg(key) {
 }
 
 // ===== キャラクター =====
-function styleOf(key, avg7) {
-  return safeStyle(key, styles[key], levelOf(PEOPLE[key], avg7));
+function styleOf(key) {
+  return equippedStyle(key, avatars[key].picks, avatars[key].equip);
 }
 
 // ホームの「ふたりのパーティ」
 function renderParty(s) {
+  const pairs = pairMatches(avatars.emi.picks, avatars.manato.picks).length;
   $("party").innerHTML = Object.keys(PEOPLE).map(key => {
     const lv = levelOf(PEOPLE[key], s[key].avg7);
+    const waiting = pendingStory(key, lv, avatars[key].picks);
     return '<button class="party-member" type="button" data-go="' + key + '">' +
-      drawCharacter(key, styleOf(key, s[key].avg7), "party-" + key) +
+      drawCharacter(key, styleOf(key), "party-" + key) +
       '<span class="lv" style="color:' + PEOPLE[key].color + '">' + PEOPLE[key].name + " Lv." + lv + "</span>" +
-      '<span class="muted">' + titleOf(key, lv) + "</span></button>";
-  }).join("");
+      '<span class="muted">' + chapterOf(key, lv).title + "</span>" +
+      (waiting ? '<span class="chip gold">アイテムが届いています</span>' : "") + "</button>";
+  }).join("") + (pairs ? '<div class="muted" style="grid-column:1/-1;text-align:center">おそろい ' + pairs + "つ</div>" : "");
 }
 
 // キャラタブ。Emiはやさしい言葉、Manatoはゲームっぽい言葉にする
 function renderChara(sv) {
-  const key = view;
-  const p = PEOPLE[key];
+  const key = view, p = PEOPLE[key], isEmi = key === "emi";
   const lv = levelOf(p, sv.avg7);
-  const style = styleOf(key, sv.avg7);
-  const isEmi = key === "emi";
+  const chapter = chapterOf(key, lv);
 
   $("charaCard").className = "card theme-" + key;
-  $("charaStage").innerHTML = drawCharacter(key, style, "main");
+  $("chapterName").textContent = chapter.name;
+  $("charaStage").innerHTML = drawCharacter(key, styleOf(key), "main");
   $("lvNum").textContent = lv;
-  $("charaTitle").textContent = titleOf(key, lv);
+  $("charaTitle").textContent = chapter.title;
   $("expBar").style.width = expOf(p, sv.avg7) * 100 + "%";
 
   const left = kgToNextLevel(p, sv.avg7, lv).toFixed(2);
   $("expText").textContent = lv >= 100 ? (isEmi ? "♡ 目標達成。おめでとう！" : "LEVEL MAX！ 目標達成")
     : (isEmi ? "♡ 次のレベルまで あと " + left + "kg" : "NEXT Lv." + (lv + 1) + " まで EXP あと " + left + "kg");
 
-  const values = statsOf(lv);
-  $("charaStats").innerHTML = GAME[key].stats.map((name, i) =>
-    '<div class="stat"><span class="muted">' + name + "</span><b>" + values[i] + "</b></div>").join("");
+  // ステータス：選んだ方向性の数で伸びる
+  const counts = directionCounts(key, avatars[key].picks);
+  $("charaStats").innerHTML = DIRECTIONS[key].map((name, i) =>
+    '<div class="stat"><span class="muted">' + name + "</span><b>" +
+    (isEmi ? "♡" + counts[i] : 50 + lv * 3 + counts[i] * 25) + "</b></div>").join("");
 
-  const next = nextUnlock(key, lv);
-  $("nextUnlock").textContent = next
-    ? "Lv." + next.lv + " で「" + next.name + "」" + (isEmi ? "が手に入ります" : "を獲得！")
-    : "すべて解放ずみです";
-
-  renderDress(key, lv, style);
+  renderGift(key, lv);
+  renderDress(key);
+  renderStoryLog(key);
   document.querySelectorAll("[data-me]").forEach(b => b.classList.toggle("on", b.dataset.me === me));
 }
 
-// 着せ替え。自分のキャラだけ選べる
-function renderDress(key, lv, style) {
+// アイテムの受け取り
+function renderGift(key, lv) {
+  const mine = me === key;
+  const story = pendingStory(key, lv, avatars[key].picks);
+  const box = $("giftCard");
+
+  if (!story) {
+    const next = nextStoryLevel(key, lv);
+    box.innerHTML = next
+      ? '<div class="mystery">?</div><div style="text-align:center">Lv.' + next + " になるとアイテムが受け取れます</div>"
+      : '<div style="text-align:center">すべての物語を受け取りました</div>';
+    return;
+  }
+  if (!mine) {
+    box.innerHTML = '<div style="text-align:center">' + PEOPLE[key].name + "は、Lv." + story.lv + " のアイテムをまだ選んでいません</div>";
+    return;
+  }
+
+  const current = styleOf(key);
+  box.innerHTML = '<div><div class="eyebrow">Lv.' + story.lv + " のアイテムが届きました</div><h2></h2></div>" +
+    '<p class="muted" style="margin:0"></p><div class="choices">' +
+    story.items.map((item, i) => {
+      const preview = Object.assign({}, current, { [story.slot]: item.id });
+      return '<button class="choice' + (chosen === i ? " on" : "") + '" type="button" data-choice="' + i + '">' +
+        drawCharacter(key, preview, "choice" + i) +
+        '<span class="dir">' + DIRECTIONS[key][i] + "</span><b></b><small></small></button>";
+    }).join("") + "</div>" +
+    '<button class="btn" id="pickBtn" type="button"' + (chosen < 0 ? " disabled" : "") + ">これに決める</button>" +
+    '<div class="muted">選ばなかった2つは、もう選べません。</div>';
+
+  // 文は textContent で入れる
+  box.querySelector("h2").textContent = story.title;
+  box.querySelector("p").textContent = story.text;
+  box.querySelectorAll(".choice").forEach((el, i) => {
+    el.querySelector("b").textContent = story.items[i].name;
+    el.querySelector("small").textContent = story.items[i].desc;
+  });
+}
+
+// 着せ替え。受け取ったものの中から選べる
+function renderDress(key) {
   const mine = me === key;
   $("dressCard").hidden = !mine;
-  if (!me) $("dressNote").textContent = "下でこのスマホの持ち主を選ぶと、自分のキャラを着せ替えできます。";
-  else if (!mine) $("dressNote").textContent = PEOPLE[key].name + "のキャラを見ています。着せ替えは" + PEOPLE[key].name + "のスマホからできます。";
-  else $("dressNote").textContent = "選んだ着せ替えは、相手のスマホにも表示されます。";
+  if (!me) $("dressNote").textContent = "下でこのスマホの持ち主を選ぶと、アイテムの受け取りと着せ替えができます。";
+  else if (!mine) $("dressNote").textContent = PEOPLE[key].name + "のキャラを見ています。選ぶのは" + PEOPLE[key].name + "のスマホからです。";
+  else $("dressNote").textContent = "選んだアイテムと着せ替えは、相手のスマホにも表示されます。";
   if (!mine) return;
 
-  const slots = GAME[key].slots;
-  $("dressSlots").innerHTML = Object.keys(slots).map(slot =>
-    '<div class="slot"><span class="muted">' + slots[slot].label + '</span><div class="options">' +
-    slots[slot].items.map(item => {
-      const locked = item.lv > lv;
-      return '<button class="opt' + (style[slot] === item.id ? " on" : "") + '" type="button" data-slot="' + slot +
-        '" data-id="' + item.id + '"' + (locked ? " disabled" : "") + ">" +
-        (locked ? "Lv." + item.lv + " " : "") + item.name + "</button>";
-    }).join("") + "</div></div>"
+  const owned = ownedItems(key, avatars[key].picks);
+  const style = styleOf(key);
+  $("dressSlots").innerHTML = Object.keys(owned).map(slot =>
+    '<div class="slot"><span class="muted">' + SLOT_LABEL[key][slot] + '</span><div class="options">' +
+    owned[slot].map(item => '<button class="opt' + (style[slot] === item.id ? " on" : "") + '" type="button" data-slot="' + slot +
+      '" data-id="' + item.id + '">' + item.name + "</button>").join("") + "</div></div>"
   ).join("");
 }
 
-// 選んだ着せ替えをスプレッドシートに保存（返事は待たない）
-function saveStyle(key, style) {
+// これまでの物語
+function renderStoryLog(key) {
+  const picks = avatars[key].picks;
+  const list = $("storyLog");
+  list.innerHTML = "";
+  STORY[key].forEach(s => {
+    const item = s.items.find(i => i.id === picks[s.lv]);
+    if (!item) return;
+    const li = document.createElement("li");
+    li.textContent = "Lv." + s.lv + "「" + s.title + "」 " + item.name;
+    list.appendChild(li);
+  });
+  if (!list.children.length) list.innerHTML = '<li class="muted">Lv.25 から物語がはじまります</li>';
+}
+
+// 受け取ったアイテムと着せ替えをスプレッドシートに保存（返事は待たない）
+function saveAvatar(key) {
   if (!API_URL) return;
   fetch(API_URL, {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({ action: "style", name: PEOPLE[key].name, style: style })
-  }).catch(() => showNotice("着せ替えを保存できませんでした。通信を確認してください。"));
+    body: JSON.stringify({ action: "avatar", name: PEOPLE[key].name, picks: avatars[key].picks, equip: avatars[key].equip })
+  }).catch(() => showNotice("保存できませんでした。通信を確認してください。"));
 }
 
 // ===== ごはん =====
 const WEEK_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+// アドバイスは Apps Script が体重の動きから選んで送ってくる（LINEの返信と同じ内容）
 function renderFood() {
   const day = new Date().getDay();
-  const advice = ADVICE[view];
-  const card = advice.days[day];
+  const a = advice[PEOPLE[view].name];
   $("foodDay").textContent = WEEK_EN[day] + " ・ " + PEOPLE[view].name;
-  $("foodTitle").textContent = card.title;
-  $("foodTips").innerHTML = "";
-  card.tips.forEach(tip => {
-    const li = document.createElement("li");
-    li.textContent = tip;
-    $("foodTips").appendChild(li);
-  });
-  $("foodNote").textContent = advice.note;
+  $("foodTitle").textContent = a ? a.label : "読み込み中";
+  $("foodTip").textContent = a ? a.tip : "";
+  $("foodNote").textContent = view === "emi"
+    ? "食事は抜かずに、量と中身で整えましょう。体重は1週間に0.5kgまでのペースが、リバウンドしないコツです。"
+    : "練習日はしっかり食べてエネルギーを確保。体重は平日で少しずつ落とすと、筋肉を残したまま絞れます。";
 }
 
 function renderCheers() {
@@ -710,6 +778,7 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
 
 document.querySelectorAll(".who").forEach(b => b.addEventListener("click", () => {
   view = b.dataset.who;
+  chosen = -1;
   save("view", view);
   render();
 }));
@@ -734,17 +803,29 @@ document.querySelectorAll("[data-me]").forEach(b => b.addEventListener("click", 
 // 着せ替えを選ぶ
 $("dressSlots").addEventListener("click", ev => {
   const btn = ev.target.closest("[data-slot]");
-  if (!btn || btn.disabled || me !== view) return;
-  const s = summary(view);
-  const style = styleOf(view, s.avg7);
-  style[btn.dataset.slot] = btn.dataset.id;
-  styles[view] = style;
-  saveStyle(view, style);
+  if (!btn || me !== view) return;
+  avatars[view].equip[btn.dataset.slot] = btn.dataset.id;
+  saveAvatar(view);
   render();
 });
 
-$("prevMonth").addEventListener("click", () => { calIndex = Math.max(calIndex - 1, 0); renderCalendar(); });
-$("nextMonth").addEventListener("click", () => { calIndex = Math.min(calIndex + 1, MONTHS.length - 1); renderCalendar(); });
+// 届いたアイテムを選ぶ → 決める
+$("giftCard").addEventListener("click", ev => {
+  if (me !== view) return;
+  const option = ev.target.closest("[data-choice]");
+  if (option) { chosen = Number(option.dataset.choice); render(); return; }
+  if (ev.target.id !== "pickBtn" || chosen < 0) return;
+
+  const lv = levelOf(PEOPLE[view], summary(view).avg7);
+  const story = pendingStory(view, lv, avatars[view].picks);
+  if (!story) return;
+  const item = story.items[chosen];
+  avatars[view].picks[story.lv] = item.id;
+  avatars[view].equip[story.slot] = item.id;  // 受け取ったらすぐ着る
+  chosen = -1;
+  saveAvatar(view);
+  render();
+});
 
 // ===== 起動とデータ読み込み =====
 // スプレッドシートの名前は「Emi」「Manato」、ページの中では「emi」「manato」
@@ -768,8 +849,12 @@ async function loadData() {
     for (const name in data.cheers) cheers[name.toLowerCase()] = data.cheers[name];
     rewards = data.rewards || {};
 
-    styles = {};
-    for (const name in data.styles || {}) styles[name.toLowerCase()] = data.styles[name];
+    advice = data.advice || {};
+
+    for (const name in data.avatars || {}) {
+      const a = data.avatars[name];
+      avatars[name.toLowerCase()] = { picks: a.picks || {}, equip: a.equip || {} };
+    }
 
     $("loadNotice").hidden = true;
     render();

@@ -21,35 +21,36 @@ function doGet() {
   sheet("ごほうび", ["月（2026-10の形）", "ごほうび"]).getDataRange().getDisplayValues().slice(1)
     .forEach(r => { rewards[r[0].replace(/\//g, "-").slice(0, 7)] = r[1]; });
 
-  const styles = {};
-  rows("着せ替え", STYLE_HEADER)
-    .forEach(r => { styles[r[0]] = { outfit: r[1], hair: r[2], item: r[3], bg: r[4] }; });
+  const avatars = {};
+  rows("アバター", AVATAR_HEADER).forEach(r => {
+    try { avatars[r[0]] = { picks: JSON.parse(r[1] || "{}"), equip: JSON.parse(r[2] || "{}") }; } catch (err) {}
+  });
 
-  const json = JSON.stringify({ entries: entries, cheers: cheers, rewards: rewards, styles: styles });
+  const advice = { Emi: adviceOf("Emi"), Manato: adviceOf("Manato") };
+
+  const json = JSON.stringify({ entries: entries, cheers: cheers, rewards: rewards, avatars: avatars, advice: advice });
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
 
-// LINEからのメッセージと、サイトからの着せ替えの保存が届くと、ここが呼ばれる
+// LINEからのメッセージと、サイトからのアイテム・着せ替えの保存が届くと、ここが呼ばれる
 function doPost(e) {
   const body = JSON.parse(e.postData.contents);
-  if (body.action === "style") saveStyle(body.name, body.style);
+  if (body.action === "avatar") saveAvatar(body.name, body.picks, body.equip);
   else (body.events || []).forEach(handleEvent);
   return ContentService.createTextOutput("ok");
 }
 
 
-// ===== 着せ替え =====
-// シート「着せ替え」：名前 / 服 / 髪型 / 小物 / 背景。1人1行で上書きする
-const STYLE_HEADER = ["名前", "服", "髪型", "小物", "背景"];
+// ===== アイテムと着せ替え =====
+// シート「アバター」：名前 / 受け取ったアイテム / 着ているもの（どちらもJSONの文字）。1人1行で上書きする
+const AVATAR_HEADER = ["名前", "受け取ったアイテム", "着ているもの"];
 
-function saveStyle(name, style) {
-  if (!PEOPLE[name] || !style) return;
-  const clean = v => String(v || "").slice(0, 20);
-  const row = [name, clean(style.outfit), clean(style.hair), clean(style.item), clean(style.bg)];
-
-  const sh = sheet("着せ替え", STYLE_HEADER);
-  const i = rows("着せ替え", STYLE_HEADER).findIndex(r => r[0] === name);
+function saveAvatar(name, picks, equip) {
+  if (!PEOPLE[name]) return;
+  const row = [name, JSON.stringify(picks || {}).slice(0, 2000), JSON.stringify(equip || {}).slice(0, 1000)];
+  const sh = sheet("アバター", AVATAR_HEADER);
+  const i = rows("アバター", AVATAR_HEADER).findIndex(r => r[0] === name);
   if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]);
   else sh.appendRow(row);
 }
@@ -112,41 +113,113 @@ function resultMessage(name, kg) {
 
   const partner = name === "Emi" ? "Manato" : "Emi";
   lines.push(hasRecordToday(partner) ? partner + "さんも今日記録済み" : partner + "さんは今日まだです");
-  lines.push("", "ごはんのひとこと：" + tipOf(name));
+  const advice = adviceOf(name);
+  lines.push("", "ごはんのひとこと（" + advice.label + "）", advice.tip);
   return lines.join("\n");
 }
 
-// 食事のひとこと。日付で順番に変わる
-const TIPS = {
-  Emi: [
-    "朝はおにぎり＋ゆで卵など、主食とたんぱく質をそろえて。抜かないのがいちばんの近道です",
-    "コンビニならおにぎり＋サラダチキン＋スープが手軽です",
-    "甘いラテを無糖に変えるだけでも差が出ます",
-    "おやつはヨーグルトやナッツひとつかみに",
-    "赤身の肉や魚、小松菜で鉄分を。疲れにくくなります",
-    "休みの日も3食のリズムを守るとリバウンドしにくいです"
-  ],
-  Manato: [
-    "練習のない日は、主食をいつもの2/3くらいに",
-    "たんぱく質は毎食、手のひら1枚分を目安に",
-    "夜はご飯少なめ、おかずと汁物でおなかを満たしましょう",
-    "揚げ物は週2回までにすると無理なく落ちます",
-    "晩酌は週2〜3回まで。おつまみはたんぱく質系を"
-  ],
-  // Manato の土日（長時間の練習日）
-  ManatoTraining: [
-    "長く漕ぐ日は、2〜3時間前に炭水化物をしっかり。練習日は削らないこと",
-    "1時間以上漕ぐときは、1時間に30〜60gの糖質と、水分・塩分を補給",
-    "練習後30分以内に、たんぱく質＋炭水化物で回復を"
-  ]
+// ===== 食事のアドバイス =====
+// 体重の動きで「状態」を決めて、その状態のアドバイスを日替わりで1つ出す
+// 1人18個。1か月に同じものを見るのは2回くらい
+const STATE_LABEL = {
+  normal: "いつもの日", down: "順調に減っています", up: "増えた日", plateau: "停滞期", training: "練習日"
 };
 
-function tipOf(name) {
-  const now = new Date();
-  const weekday = Number(Utilities.formatDate(now, "Asia/Tokyo", "u"));  // 1=月 … 7=日
-  const list = name === "Manato" && weekday >= 6 ? TIPS.ManatoTraining : TIPS[name];
-  const dayNumber = Math.floor(now.getTime() / 86400000);
-  return list[dayNumber % list.length];
+const ADVICE = {
+  Emi: {
+    normal: [
+      "朝はおにぎり＋ゆで卵＋ヨーグルトのように、主食とたんぱく質をそろえましょう",
+      "コンビニなら、おにぎり1個＋サラダチキン＋野菜スープが手軽です",
+      "甘いカフェラテを無糖のラテやお茶に変えるだけで、差が出ます",
+      "赤身の肉や魚、小松菜、豆腐で鉄分を。疲れにくくなります",
+      "夕方のおやつは、ヨーグルトやナッツひとつかみがおすすめです",
+      "飲み会では最初に枝豆・サラダ・お刺身を。お酒の合間に水を1杯ずつ"
+    ],
+    down: [
+      "いいペースです。このまま3食のリズムを続けましょう",
+      "減っているときこそ、たんぱく質をしっかり。肌や髪のツヤを守れます",
+      "もっと減らそうと量を削らず、今の食べ方を続けるのがいちばんの近道です",
+      "週末にスイーツを1つ楽しむくらいなら、ペースはくずれません"
+    ],
+    up: [
+      "1日で増えた分は、ほとんどが水分や塩分です。食事を抜かず、いつも通りに戻しましょう",
+      "むくみには、バナナ・アボカド・海藻などカリウムの多い食べ物と、こまめな水分を",
+      "前日に食べすぎたら、今日は野菜と汁物を多めに。主食は少なめでも抜かないで",
+      "生理前は体重が増えやすい時期です。気にしすぎず、7日平均で見ましょう"
+    ],
+    plateau: [
+      "停滞は体が慣れてきたサイン。2週間ほどで動き出すことが多いので、続けましょう",
+      "量を減らすより、たんぱく質と野菜を増やして中身を変えてみましょう",
+      "1駅歩く、階段を使うなど、日常の動きを少し足すと停滞が抜けやすいです",
+      "睡眠が短いと食欲が増えやすくなります。いつもより30分早く寝てみて"
+    ]
+  },
+  Manato: {
+    training: [
+      "漕ぐ2〜3時間前に、おにぎり・パン・バナナなどの炭水化物をしっかり。練習日は削らないこと",
+      "1時間以上漕ぐときは、1時間に30〜60gの糖質（ジェル・バナナ・スポーツドリンク）を補給",
+      "汗で塩分も出ます。水だけでなく、スポーツドリンクや塩タブレットも",
+      "練習後30分以内に、たんぱく質＋炭水化物で回復を（おにぎり＋プロテイン、牛丼など）"
+    ],
+    normal: [
+      "練習のない日は、主食をいつもの2/3くらいに",
+      "たんぱく質は毎食、手のひら1枚分を目安に",
+      "揚げ物は週2回までにすると、無理なく体重が落ちます",
+      "晩酌は週2〜3回まで。おつまみは焼き鳥や刺身などたんぱく質系を"
+    ],
+    down: [
+      "いいペース。練習日は食べる、平日は控えめ、のメリハリを続けましょう",
+      "筋肉を落とさないよう、たんぱく質は体重1kgあたり1.6gくらいを確保",
+      "練習で力が出ないと感じたら、練習前の炭水化物を増やして調整を"
+    ],
+    up: [
+      "長い練習の翌日は、筋肉にためた糖と水分で体重が増えることがあります。7日平均で見ましょう",
+      "塩分の多い食事の翌日はむくみやすいです。水をしっかり飲んで、野菜を多めに",
+      "前日に食べすぎたら、今日は主食を少なめにして、おかずと汁物でおなかを満たす",
+      "夜遅い食事が続いていないかチェック。寝る3時間前までに食べ終えるのが理想です"
+    ],
+    plateau: [
+      "停滞は体が慣れたサイン。平日の夜の主食だけ、もう少し減らしてみましょう",
+      "野菜・きのこ・海藻でかさ増しすると、量を減らしても満足できます",
+      "間食や飲み物のカロリーを見直すと、停滞が抜けることが多いです"
+    ]
+  }
+};
+
+// 体重の動きから状態を決める
+function weightState(name) {
+  const weekday = Number(Utilities.formatDate(new Date(), "Asia/Tokyo", "u"));  // 1=月 … 7=日
+  if (name === "Manato" && weekday >= 6) return "training";
+
+  const list = rows("記録", ["日付", "名前", "体重"])
+    .filter(r => r[1] === name)
+    .map(r => ({ date: r[0], kg: Number(r[2]) }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (list.length < 2) return "normal";
+
+  // 前回の記録より0.3kg以上増えた
+  const last = list[list.length - 1];
+  if (last.kg - list[list.length - 2].kg >= 0.3) return "up";
+
+  // 直近7日の平均と、その前の7日の平均をくらべる
+  const daysAgo = d => (new Date(last.date) - new Date(d)) / 86400000;
+  const average = items => items.length ? items.reduce((s, e) => s + e.kg, 0) / items.length : null;
+  const now = average(list.filter(e => daysAgo(e.date) < 7));
+  const before = average(list.filter(e => daysAgo(e.date) >= 7 && daysAgo(e.date) < 14));
+  if (before === null) return "normal";
+
+  const diff = now - before;
+  if (diff <= -0.2) return "down";
+  if (diff < 0.2) return "plateau";
+  return "up";
+}
+
+// 今日のアドバイス（状態の中から日替わり）
+function adviceOf(name) {
+  const state = weightState(name);
+  const list = ADVICE[name][state];
+  const dayNumber = Math.floor(Date.now() / 86400000);
+  return { state: state, label: STATE_LABEL[state], tip: list[dayNumber % list.length] };
 }
 
 
