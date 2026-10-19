@@ -69,7 +69,7 @@ h2 { font-family: var(--font-serif); font-weight: 500; margin: 0; font-size: 1.0
 .panel { overflow-y: auto; padding: 4px 16px 14px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
 
 /* タブバー */
-.tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabs { display: grid; grid-template-columns: repeat(6, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .tab { border: 0; background: none; padding: 10px 0 8px; font: inherit; font-size: 0.68rem; letter-spacing: 0.12em; color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .tab svg { width: 20px; height: 20px; }
 .tab.on { color: var(--ink); }
@@ -129,9 +129,6 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
 .chart text { fill: var(--muted); font-size: 10px; font-family: var(--font-body); }
 
 /* 履歴とエール */
-.history { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.history td { padding: 7px 4px; border-top: 1px solid var(--line); }
-.history td:last-child { text-align: right; }
 .cheer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; font-family: var(--font-serif); }
 /* カレンダー */
 .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
@@ -154,7 +151,23 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
   .star { animation: none; }
   .bar span { transition: none; }
 }
-.howto { font-family: var(--font-latin); font-size: 1.4rem; background: var(--sand-soft); border-radius: var(--radius); padding: 6px 12px; }
+/* キャラクター */
+.chara-svg { width: 100%; height: auto; display: block; border-radius: var(--radius); }
+.stage { width: 100%; max-width: 240px; margin: 0 auto; }
+.party { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.party-member { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 4px; text-align: center; }
+.lv { font-family: var(--font-latin); font-size: 1.1rem; letter-spacing: 0.06em; }
+.lv b { font-size: 2rem; font-weight: 500; }
+.theme-emi .exp span { background: linear-gradient(90deg, var(--emi), var(--sand)); }
+.theme-manato .exp span { background: linear-gradient(90deg, var(--manato), var(--sand)); }
+.slot { display: flex; flex-direction: column; gap: 6px; }
+.options { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 12px; font: inherit; font-size: 0.78rem; color: var(--ink); cursor: pointer; }
+.opt.on { border-color: var(--sand); background: var(--sand); color: var(--surface); }
+.opt:disabled { color: var(--muted); opacity: 0.6; cursor: default; }
+
+/* ごはん */
+.tips { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -215,21 +228,55 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
       <div class="muted">2人ともクリアでパス発券。1人でも未達だと行けません。</div>
     </div>
 
+    <div class="card">
+      <div><div class="eyebrow">Party</div><h2>ふたりのパーティ</h2></div>
+      <div class="party" id="party"></div>
+    </div>
+
     <div class="row" id="todayChips"></div>
+    <div class="muted">記録はLINEの公式アカウントに体重の数字を送るだけです。</div>
   </main>
 
-  <!-- タブ2：記録 -->
-  <main class="panel" id="tab-log" hidden>
-    <div class="card">
-      <div><div class="eyebrow">Today's Weight</div><h2>記録はLINEから</h2></div>
-      <div class="row"><span class="howto num">53.2</span><span class="muted">公式アカウントに数字を送るだけ。同じ日は上書きされます。</span></div>
-      <div class="row"><span class="howto" style="font-size:1rem">エール がんばろう！</span><span class="muted">相手へのひとこと</span></div>
+  <!-- タブ：キャラ -->
+  <main class="panel" id="tab-chara" hidden>
+    <div class="row">
+      <button class="who" data-who="emi" type="button">Emi</button>
+      <button class="who" data-who="manato" type="button">Manato</button>
+    </div>
+    <div class="card" id="charaCard">
+      <div class="stage" id="charaStage"></div>
+      <div class="row spread">
+        <span class="lv">Lv.<b class="num" id="lvNum">20</b></span>
+        <span class="chip gold" id="charaTitle">--</span>
+      </div>
+      <div class="bar exp"><span id="expBar" style="width:0%"></span></div>
+      <div class="muted num" id="expText"></div>
+      <div class="stats num" id="charaStats"></div>
+      <div class="muted" id="nextUnlock"></div>
+    </div>
+    <div class="card" id="dressCard">
+      <div><div class="eyebrow">Dress Up</div><h2>着せ替え</h2></div>
+      <div id="dressSlots" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+    <div class="muted" id="dressNote"></div>
+    <div class="row muted">このスマホは
+      <button class="opt" data-me="emi" type="button">Emi</button>
+      <button class="opt" data-me="manato" type="button">Manato</button>
+      のもの
+    </div>
+  </main>
+
+  <!-- タブ：ごはん -->
+  <main class="panel" id="tab-food" hidden>
+    <div class="row">
+      <button class="who" data-who="emi" type="button">Emi</button>
+      <button class="who" data-who="manato" type="button">Manato</button>
     </div>
     <div class="card">
-      <div><div class="eyebrow">Recent</div><h2>最近の記録</h2></div>
-      <table class="history num"><tbody id="historyBody"></tbody></table>
-      <div class="muted" id="historyEmpty">まだ記録がありません。</div>
+      <div><div class="eyebrow" id="foodDay">Today</div><h2 id="foodTitle">--</h2></div>
+      <ul class="tips" id="foodTips"></ul>
     </div>
+    <div class="muted" id="foodNote"></div>
   </main>
 
   <!-- タブ3：グラフ -->
@@ -273,8 +320,10 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
   <nav class="tabs">
     <button class="tab on" data-tab="home" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V10l4-6 4 6 4-6 4 6v11z"/></svg>ホーム</button>
-    <button class="tab" data-tab="log" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12h8M12 8v8"/></svg>記録</button>
+    <button class="tab" data-tab="chara" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7"/></svg>キャラ</button>
+    <button class="tab" data-tab="food" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16a8 8 0 0 1-16 0zM8 8c0-2 2-2 2-4M13 8c0-2 2-2 2-4"/></svg>ごはん</button>
     <button class="tab" data-tab="chart" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18l5-6 4 3 7-9"/></svg>グラフ</button>
     <button class="tab" data-tab="cal" type="button">
@@ -284,6 +333,8 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
   </nav>
 </div>
 
+<script src="chara.js"></script>
+<script src="game.js"></script>
 <script>
 // ===== 設定 =====
 // Apps Scriptの「ウェブアプリのURL」（…/exec）をここに貼る
@@ -308,6 +359,8 @@ let entries = { emi: [], manato: [] };   // [{date, kg}] 日付順
 let cheers = {};                          // { emi: {text, date}, ... }
 let view = load("view", "emi");            // グラフで見る人
 let rewards = {};                         // { "2026-10": "ごほうびの文" }
+let styles = {};                          // { emi: {outfit, hair, item, bg}, manato: {...} }
+let me = load("me", "");                  // このスマホの持ち主
 let calIndex = Math.min(Math.max(MONTHS.findIndex(m => today() <= m.end), 0), MONTHS.length - 1);
 
 // ===== 小道具 =====
@@ -361,7 +414,9 @@ function render() {
   renderTicket(s);
   renderToday();
   renderPerson(view, s[view]);
-  renderHistory();
+  renderParty(s);
+  renderChara(s[view]);
+  renderFood();
   renderCheers();
   renderCalendar();
   renderRewards();
@@ -447,15 +502,101 @@ function chartSvg(key) {
     '<text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + shortDate(END) + "</text></svg>";
 }
 
-function renderHistory() {
-  const all = [];
-  for (const key in PEOPLE) entries[key].forEach(e => all.push({ key, ...e }));
-  all.sort((a, b) => (a.date < b.date ? 1 : -1));
-  $("historyEmpty").hidden = all.length > 0;
-  $("historyBody").innerHTML = all.slice(0, 10).map(e =>
-    "<tr><td>" + shortDate(e.date) + '</td><td style="color:' + PEOPLE[e.key].color + '">' + PEOPLE[e.key].name +
-    "</td><td>" + e.kg.toFixed(1) + " kg</td></tr>"
+// ===== キャラクター =====
+function styleOf(key, avg7) {
+  return safeStyle(key, styles[key], levelOf(PEOPLE[key], avg7));
+}
+
+// ホームの「ふたりのパーティ」
+function renderParty(s) {
+  $("party").innerHTML = Object.keys(PEOPLE).map(key => {
+    const lv = levelOf(PEOPLE[key], s[key].avg7);
+    return '<button class="party-member" type="button" data-go="' + key + '">' +
+      drawCharacter(key, styleOf(key, s[key].avg7), "party-" + key) +
+      '<span class="lv" style="color:' + PEOPLE[key].color + '">' + PEOPLE[key].name + " Lv." + lv + "</span>" +
+      '<span class="muted">' + titleOf(key, lv) + "</span></button>";
+  }).join("");
+}
+
+// キャラタブ。Emiはやさしい言葉、Manatoはゲームっぽい言葉にする
+function renderChara(sv) {
+  const key = view;
+  const p = PEOPLE[key];
+  const lv = levelOf(p, sv.avg7);
+  const style = styleOf(key, sv.avg7);
+  const isEmi = key === "emi";
+
+  $("charaCard").className = "card theme-" + key;
+  $("charaStage").innerHTML = drawCharacter(key, style, "main");
+  $("lvNum").textContent = lv;
+  $("charaTitle").textContent = titleOf(key, lv);
+  $("expBar").style.width = expOf(p, sv.avg7) * 100 + "%";
+
+  const left = kgToNextLevel(p, sv.avg7, lv).toFixed(2);
+  $("expText").textContent = lv >= 100 ? (isEmi ? "♡ 目標達成。おめでとう！" : "LEVEL MAX！ 目標達成")
+    : (isEmi ? "♡ 次のレベルまで あと " + left + "kg" : "NEXT Lv." + (lv + 1) + " まで EXP あと " + left + "kg");
+
+  const values = statsOf(lv);
+  $("charaStats").innerHTML = GAME[key].stats.map((name, i) =>
+    '<div class="stat"><span class="muted">' + name + "</span><b>" + values[i] + "</b></div>").join("");
+
+  const next = nextUnlock(key, lv);
+  $("nextUnlock").textContent = next
+    ? "Lv." + next.lv + " で「" + next.name + "」" + (isEmi ? "が手に入ります" : "を獲得！")
+    : "すべて解放ずみです";
+
+  renderDress(key, lv, style);
+  document.querySelectorAll("[data-me]").forEach(b => b.classList.toggle("on", b.dataset.me === me));
+}
+
+// 着せ替え。自分のキャラだけ選べる
+function renderDress(key, lv, style) {
+  const mine = me === key;
+  $("dressCard").hidden = !mine;
+  if (!me) $("dressNote").textContent = "下でこのスマホの持ち主を選ぶと、自分のキャラを着せ替えできます。";
+  else if (!mine) $("dressNote").textContent = PEOPLE[key].name + "のキャラを見ています。着せ替えは" + PEOPLE[key].name + "のスマホからできます。";
+  else $("dressNote").textContent = "選んだ着せ替えは、相手のスマホにも表示されます。";
+  if (!mine) return;
+
+  const slots = GAME[key].slots;
+  $("dressSlots").innerHTML = Object.keys(slots).map(slot =>
+    '<div class="slot"><span class="muted">' + slots[slot].label + '</span><div class="options">' +
+    slots[slot].items.map(item => {
+      const locked = item.lv > lv;
+      return '<button class="opt' + (style[slot] === item.id ? " on" : "") + '" type="button" data-slot="' + slot +
+        '" data-id="' + item.id + '"' + (locked ? " disabled" : "") + ">" +
+        (locked ? "Lv." + item.lv + " " : "") + item.name + "</button>";
+    }).join("") + "</div></div>"
   ).join("");
+}
+
+// 選んだ着せ替えをスプレッドシートに保存（返事は待たない）
+function saveStyle(key, style) {
+  if (!API_URL) return;
+  fetch(API_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ action: "style", name: PEOPLE[key].name, style: style })
+  }).catch(() => showNotice("着せ替えを保存できませんでした。通信を確認してください。"));
+}
+
+// ===== ごはん =====
+const WEEK_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function renderFood() {
+  const day = new Date().getDay();
+  const advice = ADVICE[view];
+  const card = advice.days[day];
+  $("foodDay").textContent = WEEK_EN[day] + " ・ " + PEOPLE[view].name;
+  $("foodTitle").textContent = card.title;
+  $("foodTips").innerHTML = "";
+  card.tips.forEach(tip => {
+    const li = document.createElement("li");
+    li.textContent = tip;
+    $("foodTips").appendChild(li);
+  });
+  $("foodNote").textContent = advice.note;
 }
 
 function renderCheers() {
@@ -560,6 +701,7 @@ function makeSky() {
 
 // ===== 操作 =====
 function showTab(name) {
+  if (!$("tab-" + name)) name = "home";  // なくなったタブを覚えていた場合
   document.querySelectorAll(".panel").forEach(p => { p.hidden = p.id !== "tab-" + name; });
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.tab === name));
   save("tab", name);
@@ -571,6 +713,35 @@ document.querySelectorAll(".who").forEach(b => b.addEventListener("click", () =>
   save("view", view);
   render();
 }));
+
+// ホームのキャラを押すと、そのキャラのページへ
+$("party").addEventListener("click", ev => {
+  const btn = ev.target.closest("[data-go]");
+  if (!btn) return;
+  view = btn.dataset.go;
+  save("view", view);
+  render();
+  showTab("chara");
+});
+
+// このスマホの持ち主を選ぶ
+document.querySelectorAll("[data-me]").forEach(b => b.addEventListener("click", () => {
+  me = b.dataset.me;
+  save("me", me);
+  render();
+}));
+
+// 着せ替えを選ぶ
+$("dressSlots").addEventListener("click", ev => {
+  const btn = ev.target.closest("[data-slot]");
+  if (!btn || btn.disabled || me !== view) return;
+  const s = summary(view);
+  const style = styleOf(view, s.avg7);
+  style[btn.dataset.slot] = btn.dataset.id;
+  styles[view] = style;
+  saveStyle(view, style);
+  render();
+});
 
 $("prevMonth").addEventListener("click", () => { calIndex = Math.max(calIndex - 1, 0); renderCalendar(); });
 $("nextMonth").addEventListener("click", () => { calIndex = Math.min(calIndex + 1, MONTHS.length - 1); renderCalendar(); });
@@ -596,6 +767,9 @@ async function loadData() {
     cheers = {};
     for (const name in data.cheers) cheers[name.toLowerCase()] = data.cheers[name];
     rewards = data.rewards || {};
+
+    styles = {};
+    for (const name in data.styles || {}) styles[name.toLowerCase()] = data.styles[name];
 
     $("loadNotice").hidden = true;
     render();

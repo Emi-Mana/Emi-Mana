@@ -21,16 +21,37 @@ function doGet() {
   sheet("ごほうび", ["月（2026-10の形）", "ごほうび"]).getDataRange().getDisplayValues().slice(1)
     .forEach(r => { rewards[r[0].replace(/\//g, "-").slice(0, 7)] = r[1]; });
 
-  const json = JSON.stringify({ entries: entries, cheers: cheers, rewards: rewards });
+  const styles = {};
+  rows("着せ替え", STYLE_HEADER)
+    .forEach(r => { styles[r[0]] = { outfit: r[1], hair: r[2], item: r[3], bg: r[4] }; });
+
+  const json = JSON.stringify({ entries: entries, cheers: cheers, rewards: rewards, styles: styles });
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
 
-// LINEからメッセージが届くと、ここが呼ばれる
+// LINEからのメッセージと、サイトからの着せ替えの保存が届くと、ここが呼ばれる
 function doPost(e) {
-  const events = JSON.parse(e.postData.contents).events;
-  events.forEach(handleEvent);
+  const body = JSON.parse(e.postData.contents);
+  if (body.action === "style") saveStyle(body.name, body.style);
+  else (body.events || []).forEach(handleEvent);
   return ContentService.createTextOutput("ok");
+}
+
+
+// ===== 着せ替え =====
+// シート「着せ替え」：名前 / 服 / 髪型 / 小物 / 背景。1人1行で上書きする
+const STYLE_HEADER = ["名前", "服", "髪型", "小物", "背景"];
+
+function saveStyle(name, style) {
+  if (!PEOPLE[name] || !style) return;
+  const clean = v => String(v || "").slice(0, 20);
+  const row = [name, clean(style.outfit), clean(style.hair), clean(style.item), clean(style.bg)];
+
+  const sh = sheet("着せ替え", STYLE_HEADER);
+  const i = rows("着せ替え", STYLE_HEADER).findIndex(r => r[0] === name);
+  if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]);
+  else sh.appendRow(row);
 }
 
 
@@ -91,7 +112,41 @@ function resultMessage(name, kg) {
 
   const partner = name === "Emi" ? "Manato" : "Emi";
   lines.push(hasRecordToday(partner) ? partner + "さんも今日記録済み" : partner + "さんは今日まだです");
+  lines.push("", "ごはんのひとこと：" + tipOf(name));
   return lines.join("\n");
+}
+
+// 食事のひとこと。日付で順番に変わる
+const TIPS = {
+  Emi: [
+    "朝はおにぎり＋ゆで卵など、主食とたんぱく質をそろえて。抜かないのがいちばんの近道です",
+    "コンビニならおにぎり＋サラダチキン＋スープが手軽です",
+    "甘いラテを無糖に変えるだけでも差が出ます",
+    "おやつはヨーグルトやナッツひとつかみに",
+    "赤身の肉や魚、小松菜で鉄分を。疲れにくくなります",
+    "休みの日も3食のリズムを守るとリバウンドしにくいです"
+  ],
+  Manato: [
+    "練習のない日は、主食をいつもの2/3くらいに",
+    "たんぱく質は毎食、手のひら1枚分を目安に",
+    "夜はご飯少なめ、おかずと汁物でおなかを満たしましょう",
+    "揚げ物は週2回までにすると無理なく落ちます",
+    "晩酌は週2〜3回まで。おつまみはたんぱく質系を"
+  ],
+  // Manato の土日（長時間の練習日）
+  ManatoTraining: [
+    "長く漕ぐ日は、2〜3時間前に炭水化物をしっかり。練習日は削らないこと",
+    "1時間以上漕ぐときは、1時間に30〜60gの糖質と、水分・塩分を補給",
+    "練習後30分以内に、たんぱく質＋炭水化物で回復を"
+  ]
+};
+
+function tipOf(name) {
+  const now = new Date();
+  const weekday = Number(Utilities.formatDate(now, "Asia/Tokyo", "u"));  // 1=月 … 7=日
+  const list = name === "Manato" && weekday >= 6 ? TIPS.ManatoTraining : TIPS[name];
+  const dayNumber = Math.floor(now.getTime() / 86400000);
+  return list[dayNumber % list.length];
 }
 
 
