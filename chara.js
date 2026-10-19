@@ -5,13 +5,11 @@
 // 重ねる順番：背景 → 相棒 → 後ろ髪・マント → 首 → 足 → 服 → 手に持つ物 → 腕 → 持ち物 → 顔 → 前髪 → 頭の飾り
 // =====================================================
 
-const SKIN = "#FBE3D3";
-const SKIN_LINE = "#D9A28A";
-const OL = 'stroke="#4A3428" stroke-opacity="0.35" stroke-width="1.2" stroke-linejoin="round"';  // うすい輪郭線
+const SKIN = "#F7D9C4";
+const OL = "";  // 輪郭線なし（リッチメニューと同じ、丸くてシンプルな絵柄）
 
 // ===== 体の共通パーツ =====
-const NECK = `<path d="M92 122 L92 142 Q100 146 108 142 L108 122 Z" fill="${SKIN}"/>
-  <path d="M92 128 Q100 136 108 128 L108 134 Q100 140 92 134 Z" fill="#F2C9B3"/>`;
+const NECK = `<rect x="92" y="124" width="16" height="18" fill="${SKIN}"/>`;
 
 const ARM_PATHS = {
   emi: {
@@ -44,110 +42,70 @@ function armsSVG(who, color, len) {
   if (len === "none") s = skinArm;
   if (len === "wide") s = `<path d="${a.wideL}" fill="${color}" ${OL}/><path d="${a.wideR}" fill="${color}" ${OL}/>`;
   return s + a.hands.map(([x, y, r]) =>
-    `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r + 0.5}" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1"/>`).join("");
+    `<circle cx="${x}" cy="${y}" r="${r}" fill="${SKIN}"/>`).join("");
 }
 
-// ===== 顔（アニメ風の目） =====
-function faceSVG(who, uid) {
-  const isEmi = who === "emi";
-  const eye = (cx, outer) => `
-    <ellipse cx="${cx}" cy="94" rx="8.5" ry="${isEmi ? 10 : 9}" fill="#fff"/>
-    <ellipse cx="${cx}" cy="95.5" rx="6.8" ry="${isEmi ? 8.6 : 7.8}" fill="url(#iris${uid})"/>
-    <ellipse cx="${cx}" cy="96.5" rx="3.2" ry="4.4" fill="#1A0F0A"/>
-    <circle cx="${cx + 2.6}" cy="91" r="2.6" fill="#fff"/>
-    <circle cx="${cx - 2.8}" cy="99.5" r="1.2" fill="#fff" opacity="0.9"/>
-    <path d="M${cx - 10} 88 Q${cx} ${isEmi ? 81 : 83} ${cx + 10} 87" stroke="#2A1A14" stroke-width="${isEmi ? 3 : 2.6}" fill="none" stroke-linecap="round"/>
-    ${isEmi ? `<path d="M${cx + outer * 10} 87.5 L${cx + outer * 13.5} 84" stroke="#2A1A14" stroke-width="2" stroke-linecap="round"/>` : ""}
-    <path d="M${cx - 6} 104.5 Q${cx} 106.5 ${cx + 6} 104.5" stroke="#C88A74" stroke-width="1" fill="none"/>
-    <path d="M${cx - 8} ${isEmi ? 77 : 78} Q${cx} ${isEmi ? 73.5 : 75} ${cx + 8} ${isEmi ? 77 : 77}" stroke="${isEmi ? "#5A3A2E" : "#2A2228"}" stroke-width="${isEmi ? 1.6 : 2.8}" fill="none" stroke-linecap="round"/>`;
-
-  const blush = [70, 130].map(x => `<ellipse cx="${x}" cy="109" rx="8" ry="4" fill="#F4A6A0" opacity="${isEmi ? 0.55 : 0.35}"/>
-    <path d="M${x - 4} 110 L${x - 2} 107 M${x} 110 L${x + 2} 107 M${x + 4} 110 L${x + 6} 107" stroke="#E98A84" stroke-width="0.8" opacity="0.6"/>`).join("");
-
-  const mouth = isEmi
-    ? `<path d="M94 115 Q100 122 106 115 Q100 117.5 94 115 Z" fill="#C25A55"/>`
-    : `<path d="M94 116 Q101 120 107 115" stroke="#8A4A3A" stroke-width="2" fill="none" stroke-linecap="round"/>`;
-
-  return `<defs><linearGradient id="iris${uid}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2A1810"/><stop offset="1" stop-color="${isEmi ? "#8A5638" : "#5A4030"}"/></linearGradient></defs>
-    <path d="M58 78 Q58 36 100 36 Q142 36 142 78 Q142 108 124 122 Q112 132 100 132 Q88 132 76 122 Q58 108 58 78 Z" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1.2"/>
-    ${eye(82, -1)}${eye(118, 1)}${blush}
-    <path d="M101 104 Q100 107 98 107" stroke="${SKIN_LINE}" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-    ${mouth}`;
+// ===== 顔（丸い頭・点の目） =====
+function faceSVG(who) {
+  return `<circle cx="55" cy="96" r="7" fill="${SKIN}"/><circle cx="145" cy="96" r="7" fill="${SKIN}"/>
+    <ellipse cx="100" cy="88" rx="46" ry="44" fill="${SKIN}"/>
+    <ellipse cx="84" cy="96" rx="5" ry="6.5" fill="#3A2A22"/><circle cx="86" cy="93.5" r="1.8" fill="#fff"/>
+    <ellipse cx="116" cy="96" rx="5" ry="6.5" fill="#3A2A22"/><circle cx="118" cy="93.5" r="1.8" fill="#fff"/>
+    <ellipse cx="74" cy="107" rx="6" ry="3.5" fill="#F2A79C" opacity="0.6"/>
+    <ellipse cx="126" cy="107" rx="6" ry="3.5" fill="#F2A79C" opacity="0.6"/>
+    <path d="M94 111 Q100 117 106 111" fill="none" stroke="#7A4A3A" stroke-width="2" stroke-linecap="round"/>`;
 }
 
 
 // ===== Emi の髪型 =====
-const E_HAIR = "#3A2621";
-const E_HAIR_HI = "#6A4A3C";
+const E_HAIR = "#3B2A24";
+const E_HAIR_HI = "#5A3E33";
 
-function emiBangs(color) {
-  return `<path d="M56 88 Q52 32 100 28 Q148 32 144 88 L139 70 L134 86 L126 62 L118 84 L108 58 L101 80 L93 58 L84 84 L76 62 L68 86 L62 70 Z" fill="${color}" ${OL}/>
-    <path d="M58 74 Q50 108 56 146 L62 134 L66 146 Q64 110 68 82 Z" fill="${color}" ${OL}/>
-    <path d="M142 74 Q150 108 144 146 L138 134 L134 146 Q136 110 132 82 Z" fill="${color}" ${OL}/>
-    <path d="M68 52 Q100 40 132 52" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.25"/>
-    <path d="M88 40 L84 70 M112 40 L116 70" stroke="#000" stroke-opacity="0.15" stroke-width="1"/>`;
-}
-const E_BACK_SHORT = `<path d="M56 88 Q50 30 100 26 Q150 30 144 88 Q146 118 138 130 L62 130 Q54 118 56 88 Z" fill="${E_HAIR}"/>`;
+const emiBangs = (c) => `<path d="M54 86 Q54 38 100 36 Q146 38 146 86 Q140 70 132 70 Q126 60 116 66 Q108 56 100 64 Q92 56 84 66 Q74 60 68 70 Q60 70 54 86 Z" fill="${c}"/>`;
+const E_BACK_SHORT = `<path d="M54 90 Q52 32 100 30 Q148 32 146 90 Z" fill="${E_HAIR}"/>`;
+const E_BACK_LONG = (c) => `<path d="M52 88 Q50 30 100 30 Q150 30 148 88 L150 168 Q126 174 114 158 L86 158 Q74 174 50 168 Z" fill="${c}"/>`;
 
 const EMI_HAIR = {
-  long: {
-    back: `<path d="M54 84 Q48 28 100 24 Q152 28 146 84 Q150 140 150 196 L142 186 L136 200 L128 184 Q124 160 122 140 L78 140 Q76 160 72 184 L64 200 L58 186 L50 196 Q50 140 54 84 Z" fill="${E_HAIR}" ${OL}/>`,
-    front: emiBangs(E_HAIR)
-  },
+  long: { back: E_BACK_LONG(E_HAIR), front: emiBangs(E_HAIR) },
   pony: {
-    back: E_BACK_SHORT + `<path d="M132 40 Q176 60 170 120 Q168 150 156 176 L152 160 L144 170 Q160 120 136 60 Z" fill="${E_HAIR}" ${OL}/>`,
-    front: emiBangs(E_HAIR) + `<circle cx="136" cy="44" r="6" fill="#E58FA5"/>`
+    back: `<path d="M138 50 Q178 70 168 132 Q162 152 150 142 Q160 100 134 64 Z" fill="${E_HAIR}"/>` + E_BACK_SHORT,
+    front: emiBangs(E_HAIR) + `<circle cx="140" cy="54" r="6" fill="#E58FA5"/>`
   },
-  bun: {
-    back: `<circle cx="100" cy="22" r="18" fill="${E_HAIR}" ${OL}/><path d="M88 14 Q100 6 112 14" stroke="${E_HAIR_HI}" stroke-width="2" fill="none"/>` + E_BACK_SHORT,
-    front: emiBangs(E_HAIR) + `<path d="M142 80 Q148 96 144 112" stroke="${E_HAIR}" stroke-width="3" fill="none"/>`
-  },
+  bun: { back: `<circle cx="100" cy="26" r="17" fill="${E_HAIR}"/>` + E_BACK_SHORT, front: emiBangs(E_HAIR) },
   braid: {
     back: E_BACK_SHORT,
-    front: emiBangs(E_HAIR) + [136, 150, 164, 178].map(y =>
-      `<ellipse cx="${62 - (y - 136) * 0.15}" cy="${y}" rx="8" ry="8" fill="${E_HAIR}" ${OL}/>`).join("") +
-      `<circle cx="55" cy="190" r="4" fill="#F2C95C"/>`
+    front: emiBangs(E_HAIR) + [130, 144, 158, 172].map(y => `<circle cx="${60 - (y - 130) * 0.15}" cy="${y}" r="7.5" fill="${E_HAIR}"/>`).join("") +
+      `<circle cx="54" cy="184" r="4" fill="#F2C95C"/>`
   },
   wavy: {
-    back: `<path d="M54 84 Q48 28 100 24 Q152 28 146 84 Q160 110 148 134 Q162 156 150 180 Q140 196 128 184 Q124 160 122 140 L78 140 Q76 160 72 184 Q60 196 50 180 Q38 156 52 134 Q40 110 54 84 Z" fill="#5A3A2C" ${OL}/>`,
+    back: `<path d="M52 88 Q50 30 100 30 Q150 30 148 88 Q156 108 146 126 Q158 144 148 162 Q138 174 124 164 L76 164 Q62 174 52 162 Q42 144 54 126 Q44 108 52 88 Z" fill="#5A3A2C"/>`,
     front: emiBangs("#5A3A2C")
   },
-  bob: {
-    back: `<path d="M54 86 Q48 28 100 24 Q152 28 146 86 Q152 120 146 132 L54 132 Q48 120 54 86 Z" fill="${E_HAIR}" ${OL}/>`,
-    front: emiBangs(E_HAIR)
-  },
+  bob: { back: `<path d="M52 88 Q50 30 100 30 Q150 30 148 88 L150 128 Q100 136 50 128 Z" fill="${E_HAIR}"/>`, front: emiBangs(E_HAIR) },
   halfup: {
-    back: `<path d="M54 84 Q48 28 100 24 Q152 28 146 84 Q150 140 150 196 L142 186 L136 200 L128 184 Q124 160 122 140 L78 140 Q76 160 72 184 L64 200 L58 186 L50 196 Q50 140 54 84 Z" fill="${E_HAIR}" ${OL}/>`,
-    front: emiBangs(E_HAIR) + [64, 76, 88, 100, 112, 124, 136].map((x, i) =>
-      `<ellipse cx="${x}" cy="${44 - Math.sin((i / 6) * Math.PI) * 10}" rx="6" ry="4.5" fill="${E_HAIR_HI}"/>`).join("")
+    back: E_BACK_LONG(E_HAIR),
+    front: emiBangs(E_HAIR) + [66, 80, 100, 120, 134].map((x, i) => `<circle cx="${x}" cy="${[50, 42, 38, 42, 50][i]}" r="4.5" fill="${E_HAIR_HI}"/>`).join("")
   }
 };
 
 
 // ===== Manato の髪型 =====
-const M_HAIR = "#1E1B22";
+const M_HAIR = "#1F1D22";
+const M_FRONT = `<path d="M50 90 Q44 40 98 30 Q156 30 152 90 Q146 72 138 70 L134 80 Q124 62 108 66 L104 54 Q94 68 80 64 L76 78 Q64 72 50 90 Z" fill="${M_HAIR}"/>`;
 
 const MANATO_HAIR = {
-  messy: {
-    back: `<path d="M54 92 Q48 30 100 26 Q152 30 146 92 Q140 80 140 70 L60 70 Q60 80 54 92 Z" fill="${M_HAIR}" ${OL}/>`,
-    front: `<path d="M52 92 Q46 40 96 28 Q150 26 150 88 L144 74 L140 88 L132 64 L124 82 L114 58 L106 78 L96 56 L88 78 L78 60 L72 82 L64 66 L58 86 Z" fill="${M_HAIR}" ${OL}/>
-      <path d="M94 30 Q90 20 98 22 Q100 26 100 28 Z" fill="${M_HAIR}"/>
-      <path d="M70 50 Q100 38 130 50" stroke="#fff" stroke-opacity="0.18" stroke-width="4" fill="none" stroke-linecap="round"/>`
-  },
+  messy: { back: `<path d="M52 92 Q48 34 100 30 Q152 34 148 92 Z" fill="${M_HAIR}"/>`, front: M_FRONT },
   short: {
-    back: `<path d="M56 88 Q52 34 100 30 Q148 34 144 88 Z" fill="${M_HAIR}" ${OL}/>`,
-    front: `<path d="M56 84 Q54 34 100 30 Q146 34 144 84 L138 72 L130 80 L120 66 L110 76 L100 64 L90 76 L80 66 L70 80 L62 72 Z" fill="${M_HAIR}" ${OL}/>
-      <path d="M72 48 Q100 38 128 48" stroke="#fff" stroke-opacity="0.18" stroke-width="4" fill="none" stroke-linecap="round"/>`
+    back: `<path d="M54 88 Q52 36 100 34 Q148 36 146 88 Z" fill="${M_HAIR}"/>`,
+    front: `<path d="M54 80 Q54 38 100 36 Q146 38 146 80 Q132 64 100 62 Q68 64 54 80 Z" fill="${M_HAIR}"/>`
   },
   wolf: {
-    back: `<path d="M52 92 Q46 28 100 24 Q154 28 148 92 L150 124 L142 114 L138 130 L130 112 L70 112 L62 130 L58 114 L50 124 Z" fill="${M_HAIR}" ${OL}/>`,
-    front: `<path d="M52 92 Q46 40 96 28 Q150 26 150 88 L144 74 L140 92 L132 64 L124 86 L114 58 L106 80 L96 56 L88 80 L78 60 L72 86 L64 66 L58 90 Z" fill="${M_HAIR}" ${OL}/>`
+    back: `<path d="M52 92 Q48 34 100 30 Q152 34 148 92 L150 120 L140 112 L136 124 L64 124 L60 112 L50 120 Z" fill="${M_HAIR}"/>`,
+    front: M_FRONT
   },
   slick: {
-    back: `<path d="M56 90 Q52 30 102 26 Q148 30 144 90 Z" fill="${M_HAIR}" ${OL}/>`,
-    front: `<path d="M56 80 Q56 30 102 28 Q146 32 144 80 Q130 52 100 52 Q72 54 56 80 Z" fill="${M_HAIR}" ${OL}/>
-      <path d="M72 62 Q90 40 120 38 M80 58 Q100 44 130 48 M66 70 Q80 50 104 42" stroke="#fff" stroke-opacity="0.2" stroke-width="1.5" fill="none"/>`
+    back: `<path d="M54 92 Q52 40 100 36 Q148 40 146 92 Z" fill="${M_HAIR}"/>`,
+    front: `<path d="M56 76 Q60 28 104 28 Q150 30 146 76 Q128 54 96 58 Q74 60 56 76 Z" fill="${M_HAIR}"/>`
   }
 };
 
@@ -525,6 +483,6 @@ function drawCharacter(who, style, uid) {
     ${sideBehind ? side : ""}
     ${o.back || ""}${h.back}${NECK}${o.legs}${o.body}${hand}${o.arms}
     ${sideBehind ? "" : side}
-    ${faceSVG(who, uid)}${h.front}${head}
+    ${faceSVG(who)}${h.front}${head}
   </svg>`;
 }
