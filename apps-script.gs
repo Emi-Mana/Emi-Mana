@@ -12,9 +12,10 @@ function doGet() {
   const entries = rows("記録", ["日付", "名前", "体重"])
     .map(r => ({ date: r[0], name: r[1], kg: Number(r[2]) }));
 
-  const cheers = {};
-  rows("エール", ["日付", "名前", "ひとこと"])
-    .forEach(r => { cheers[r[1]] = { date: r[0], text: r[2] }; });  // 最新の1件だけ残る
+  // エールは新しい順に、最大300件
+  const cheers = sheet("エール履歴", CHEER_HEADER).getDataRange().getDisplayValues().slice(1)
+    .map(r => ({ at: r[0], from: r[1], to: r[2], text: r[3] }))
+    .reverse().slice(0, 300);
 
   // 月は「2026/10/01」と表示されていても「2026-10」にそろえる
   const rewards = {};
@@ -37,8 +38,37 @@ function doGet() {
 function doPost(e) {
   const body = JSON.parse(e.postData.contents);
   if (body.action === "avatar") saveAvatar(body.name, body.picks, body.equip);
+  else if (body.action === "cheer") sendCheer(body.from, body.text);
   else (body.events || []).forEach(handleEvent);
   return ContentService.createTextOutput("ok");
+}
+
+
+// ===== エール =====
+// シート「エール履歴」：日時 / 送った人 / 受け取った人 / エール
+const CHEER_HEADER = ["日時", "送った人", "受け取った人", "エール"];
+const SITE_URL = "https://emi-mana.github.io/Emi-Mana/#cheer";
+
+// エールを保存して、相手のLINEに通知する
+function sendCheer(from, text) {
+  if (!PEOPLE[from]) return false;
+  text = String(text || "").trim().slice(0, 200);
+  if (!text) return false;
+
+  const to = from === "Emi" ? "Manato" : "Emi";
+  const at = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm");
+  // 先頭の ' は、シートに日時へ自動変換させず文字のまま残すため
+  sheet("エール履歴", CHEER_HEADER).appendRow(["'" + at, from, to, text]);
+
+  userIdsOf(to).forEach(id => push(id, from + "からエールが届きました\n「" + text + "」\n\n返事はこちらから\n" + SITE_URL));
+  return true;
+}
+
+// その名前で登録しているLINEのID
+function userIdsOf(name) {
+  const members = {};
+  rows("メンバー", ["LINEのID", "名前"]).forEach(r => { members[r[0]] = r[1]; });
+  return Object.keys(members).filter(id => members[id] === name);
 }
 
 
@@ -77,19 +107,19 @@ function handleEvent(ev) {
 
   // 「エール ○○」と送ると、相手へのひとことを保存
   if (text.startsWith("エール")) {
-    const message = text.replace(/^エール[\s　]*/, "").slice(0, 80);
+    const message = text.replace(/^エール[\s　]*/, "").slice(0, 200);
     if (!message) {
       reply(ev.replyToken, "「エール がんばろう！」のように、エールのあとに言葉を続けて送ってください。");
       return;
     }
-    sheet("エール", ["日付", "名前", "ひとこと"]).appendRow([today(), name, message]);
-    reply(ev.replyToken, "エールを送りました。サイトのエールタブに表示されます。");
+    sendCheer(name, message);
+    reply(ev.replyToken, "エールを送りました。");
     return;
   }
 
   const kg = Number(text);
   if (!(kg >= 30 && kg <= 150)) {
-    reply(ev.replyToken, "体重を数字だけで送ってください（例：53.2）\nエールは「エール がんばろう！」のように送れます。");
+    reply(ev.replyToken, "体重を数字だけで送ってください（例：53.2）\nエールはサイトのエールタブから送れます。");
     return;
   }
 

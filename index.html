@@ -146,6 +146,13 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
 .reward-month { font-family: var(--font-latin); font-size: 1.2rem; }
 .reward-input { font-family: var(--font-serif); font-size: 0.95rem; width: 100%; box-sizing: border-box; }
 
+/* エール */
+.cheer-input { width: 100%; box-sizing: border-box; resize: none; height: 84px; border: 1px solid var(--line); padding: 10px; font-family: var(--font-serif); }
+.cheer-list { display: flex; flex-direction: column; gap: 8px; }
+.cheer-item { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.cheer-item p { margin: 0; font-family: var(--font-serif); line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.who.on[data-box] { border-bottom: 2px solid var(--sand); color: var(--ink); }
+
 .notice { background: var(--sand-soft); border-radius: var(--radius); padding: 8px 12px; font-size: 0.8rem; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -330,9 +337,25 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
 
   <!-- タブ4：エール -->
   <main class="panel" id="tab-cheer" hidden>
-    <div><div class="eyebrow">Letters</div><h2>ふたりのひとこと</h2></div>
-    <div id="cheerList" style="display:flex;flex-direction:column;gap:8px"></div>
-    <div class="muted">LINEで「エール ○○」と送ると、ここに表示されます。</div>
+    <div class="row muted">わたしは
+      <button class="opt" data-me="emi" type="button">Emi</button>
+      <button class="opt" data-me="manato" type="button">Manato</button>
+    </div>
+
+    <div class="card">
+      <div><div class="eyebrow">Send</div><h2 id="cheerTo">エールを送る</h2></div>
+      <textarea class="field cheer-input" id="cheerInput" maxlength="200" placeholder="相手へのひとこと"></textarea>
+      <div class="row spread">
+        <span class="muted" id="cheerMsg">送ると、相手のLINEに通知が届きます。</span>
+        <button class="btn" id="cheerBtn" type="button">送る</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <button class="who" data-box="received" type="button">もらったエール</button>
+      <button class="who" data-box="sent" type="button">送ったエール</button>
+    </div>
+    <div class="cheer-list" id="cheerList"></div>
   </main>
 
   <nav class="tabs">
@@ -374,7 +397,8 @@ const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
 
 // ===== 状態 =====
 let entries = { emi: [], manato: [] };   // [{date, kg}] 日付順
-let cheers = {};                          // { emi: {text, date}, ... }
+let cheers = [];                          // [{at, from, to, text}] 新しい順
+let cheerBox = "received";                // エールタブで見ている方
 let view = load("view", "emi");            // グラフで見る人
 let rewards = {};                         // { "2026-10": "ごほうびの文" }
 let avatars = { emi: { picks: {}, equip: {} }, manato: { picks: {}, equip: {} } };  // 受け取ったアイテムと着ているもの
@@ -440,7 +464,7 @@ function render() {
   renderCheers();
   renderCalendar();
   renderRewards();
-  document.querySelectorAll(".who").forEach(b => b.classList.toggle("on", b.dataset.who === view));
+  document.querySelectorAll(".who[data-who]").forEach(b => b.classList.toggle("on", b.dataset.who === view));
 }
 
 function renderTicket(s) {
@@ -668,20 +692,41 @@ function renderFood() {
     : "練習日はしっかり食べてエネルギーを確保。体重は平日で少しずつ落とすと、筋肉を残したまま絞れます。";
 }
 
+// エールタブ。わたし（このスマホの持ち主）から見た「もらった」「送った」を分けて、新しい順に並べる
 function renderCheers() {
+  document.querySelectorAll("[data-me]").forEach(b => b.classList.toggle("on", b.dataset.me === me));
+  document.querySelectorAll("[data-box]").forEach(b => b.classList.toggle("on", b.dataset.box === cheerBox));
+  $("cheerBtn").disabled = !me;
+  $("cheerTo").textContent = me ? PEOPLE[other(me)].name + "へエールを送る" : "エールを送る";
+  if (!me) $("cheerMsg").textContent = "上で自分の名前を選ぶと送れます。";
+
   const box = $("cheerList");
   box.innerHTML = "";
-  for (const key in PEOPLE) {
-    const c = cheers[key];
-    if (!c) continue;
+  const myName = me ? PEOPLE[me].name : "";
+  const list = cheers.filter(c => !me || (cheerBox === "received" ? c.to === myName : c.from === myName));
+
+  list.forEach(c => {
     const div = document.createElement("div");
-    div.className = "cheer";
-    div.innerHTML = '<div class="muted"></div><div></div>';
-    div.children[0].textContent = PEOPLE[key].name + " → " + PEOPLE[other(key)].name + "（" + shortDate(c.date) + "）";
-    div.children[1].textContent = c.text;
+    div.className = "cheer-item";
+    div.innerHTML = '<div class="row spread"><b></b><span class="muted num"></span></div><p></p>';
+    div.querySelector("b").textContent = c.from;
+    div.querySelector("b").style.color = PEOPLE[c.from.toLowerCase()] ? PEOPLE[c.from.toLowerCase()].color : "";
+    div.querySelector("span").textContent = jaDateTime(c.at);
+    div.querySelector("p").textContent = c.text;
     box.appendChild(div);
-  }
-  if (!box.children.length) box.innerHTML = '<div class="muted">まだエールはありません。</div>';
+  });
+  if (!list.length) box.innerHTML = '<div class="muted">まだエールはありません。</div>';
+}
+
+// 「2026-10-19 22:46」→「2026年10月19日 22時46分」
+function jaDateTime(at) {
+  const m = String(at).match(/(\d{4})\D(\d{1,2})\D(\d{1,2})\D+(\d{1,2}):(\d{2})/);
+  return m ? m[1] + "年" + Number(m[2]) + "月" + Number(m[3]) + "日 " + Number(m[4]) + "時" + m[5] + "分" : String(at);
+}
+
+function nowText() {
+  const d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 }
 
 // ===== カレンダー =====
@@ -777,7 +822,7 @@ function showTab(name) {
 }
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
 
-document.querySelectorAll(".who").forEach(b => b.addEventListener("click", () => {
+document.querySelectorAll(".who[data-who]").forEach(b => b.addEventListener("click", () => {
   view = b.dataset.who;
   chosen = -1;
   save("view", view);
@@ -799,6 +844,29 @@ document.querySelectorAll("[data-me]").forEach(b => b.addEventListener("click", 
   me = b.dataset.me;
   save("me", me);
   render();
+}));
+
+// エールを送る（相手のLINEには Apps Script が通知する）
+$("cheerBtn").addEventListener("click", () => {
+  const text = $("cheerInput").value.trim();
+  if (!me || !text || !API_URL) return;
+  fetch(API_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ action: "cheer", from: PEOPLE[me].name, text: text })
+  }).then(() => {
+    cheers.unshift({ at: nowText(), from: PEOPLE[me].name, to: PEOPLE[other(me)].name, text: text });
+    $("cheerInput").value = "";
+    $("cheerMsg").textContent = PEOPLE[other(me)].name + "にエールを送りました。";
+    cheerBox = "sent";
+    renderCheers();
+  }).catch(() => { $("cheerMsg").textContent = "送れませんでした。通信を確認して、もう一度送ってください。"; });
+});
+
+document.querySelectorAll("[data-box]").forEach(b => b.addEventListener("click", () => {
+  cheerBox = b.dataset.box;
+  renderCheers();
 }));
 
 // 着せ替えを選ぶ
@@ -846,8 +914,7 @@ async function loadData() {
     });
     for (const key in entries) entries[key].sort((a, b) => (a.date < b.date ? -1 : 1));
 
-    cheers = {};
-    for (const name in data.cheers) cheers[name.toLowerCase()] = data.cheers[name];
+    cheers = Array.isArray(data.cheers) ? data.cheers : [];
     rewards = data.rewards || {};
 
     advice = data.advice || {};
@@ -870,7 +937,7 @@ function showNotice(text) {
 }
 
 makeSky();
-showTab(load("tab", "home"));
+showTab(location.hash === "#cheer" ? "cheer" : load("tab", "home"));
 render();
 loadData();
 // 画面に戻ってきたときに最新を読み直す
