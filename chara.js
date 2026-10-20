@@ -61,7 +61,7 @@ function faceSVG(who) {
 const E_HAIR = "#3B2A24";
 const E_HAIR_HI = "#5A3E33";
 
-const emiBangs = (c) => `<path d="M54 86 Q54 38 100 36 Q146 38 146 86 Q140 70 132 70 Q126 60 116 66 Q108 56 100 64 Q92 56 84 66 Q74 60 68 70 Q60 70 54 86 Z" fill="${c}"/>`;
+const emiBangs = (c) => `<path d="M54 90 Q54 38 100 36 Q146 38 146 90 Q142 81 134 81 Q127 74 118 80 Q110 74 100 80 Q90 74 82 80 Q73 74 66 81 Q58 81 54 90 Z" fill="${c}"/>`;
 const E_BACK_SHORT = `<path d="M54 90 Q52 32 100 30 Q148 32 146 90 Z" fill="${E_HAIR}"/>`;
 const E_BACK_LONG = (c) => `<path d="M52 88 Q50 30 100 30 Q150 30 148 88 L150 168 Q126 174 114 158 L86 158 Q74 174 50 168 Z" fill="${c}"/>`;
 
