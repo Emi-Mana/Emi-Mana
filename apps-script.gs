@@ -24,7 +24,9 @@ function doGet() {
 
   const avatars = {};
   rows("アバター", AVATAR_HEADER).forEach(r => {
-    try { avatars[r[0]] = { picks: JSON.parse(r[1] || "{}"), equip: JSON.parse(r[2] || "{}") }; } catch (err) {}
+    try {
+      avatars[r[0]] = { picks: JSON.parse(r[1] || "{}"), equip: JSON.parse(r[2] || "{}"), damage: JSON.parse(r[5] || "{}") };
+    } catch (err) {}
   });
 
   const advice = { Emi: adviceOf("Emi"), Manato: adviceOf("Manato") };
@@ -63,8 +65,9 @@ function sendCheer(from, text) {
 
 
 // ===== アイテムと着せ替え =====
-// シート「アバター」：名前 / 受け取ったアイテム / 着ているもの（どちらもJSONの文字）。1人1行で上書きする
-const AVATAR_HEADER = ["名前", "受け取ったアイテム", "着ているもの"];
+// シート「アバター」：名前 / 受け取ったアイテム / 着ているもの / 記録したレベル / ダウンしたレベル数 / 傷み
+// 1人1行。サイトが書くのは2〜3列目だけ、4〜6列目は体重の記録のときに Apps Script が書く
+const AVATAR_HEADER = ["名前", "受け取ったアイテム", "着ているもの", "記録したレベル", "ダウンしたレベル数", "傷み"];
 
 function saveAvatar(name, picks, equip) {
   if (!PEOPLE[name]) return;
@@ -73,6 +76,81 @@ function saveAvatar(name, picks, equip) {
   const i = rows("アバター", AVATAR_HEADER).findIndex(r => r[0] === name);
   if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]);
   else sh.appendRow(row);
+}
+
+
+// ===== レベルダウン =====
+// 体重が増えてレベルが下がったら、下がったレベル数を足していき、
+// DAMAGE_STEP レベルごとに持っているアイテムを1段階ずつ傷める（1=よごれ、2=ぼろぼろ、3=なくなる）
+// 傷みはレベルが戻っても元に戻らない
+const DAMAGE_STEP = 4;  // 4レベル（約0.2kg）下がるごとに1段階
+const DEFAULT_ITEMS = {
+  Emi: { outfit: "coat", hair: "long", side: "bag", bg: "town" },
+  Manato: { outfit: "jacket", hair: "messy", bg: "town" }
+};
+const DAMAGE_ORDER = ["outfit", "head", "hand", "side", "bg", "hair"];  // 着ている服から先に傷む
+
+// 7日平均の体重から、今のレベル（サイトと同じ計算）
+function levelNow(name) {
+  const list = rows("記録", ["日付", "名前", "体重"]).filter(r => r[1] === name)
+    .map(r => ({ date: r[0], kg: Number(r[2]) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (!list.length) return null;
+  const last = list[list.length - 1].date;
+  const week = list.filter(e => (new Date(last) - new Date(e.date)) / 86400000 < 7);
+  const avg = week.reduce((s, e) => s + e.kg, 0) / week.length;
+  const p = PEOPLE[name];
+  const raw = 20 + 80 * (p.start - avg) / (p.start - p.goal);
+  return Math.min(Math.max(Math.floor(raw), 1), 100);
+}
+
+// 体重を記録したあとに呼ぶ。レベルが下がっていたら傷みを足す
+function updateLevel(name) {
+  const now = levelNow(name);
+  if (now === null) return null;
+
+  const sh = sheet("アバター", AVATAR_HEADER);
+  sh.getRange(1, 1, 1, AVATAR_HEADER.length).setValues([AVATAR_HEADER]);  // 前からあるシートにも列名をつける
+  let i = rows("アバター", AVATAR_HEADER).findIndex(r => r[0] === name);
+  if (i < 0) { sh.appendRow([name, "{}", "{}"]); i = rows("アバター", AVATAR_HEADER).length - 1; }
+  const r = rows("アバター", AVATAR_HEADER)[i];
+
+  const parse = v => { try { return JSON.parse(v || "{}"); } catch (err) { return {}; } };
+  const picks = parse(r[1]), equip = parse(r[2]), damage = parse(r[5]);
+  const before = r[3] === "" ? null : Number(r[3]);
+  let downs = Number(r[4]) || 0;
+  let damaged = [];
+
+  if (before !== null && now < before) {
+    const oldSteps = Math.floor(downs / DAMAGE_STEP);
+    downs += before - now;
+    for (let n = Math.floor(downs / DAMAGE_STEP) - oldSteps; n > 0; n--) {
+      const id = damageOne(name, picks, equip, damage);
+      if (id) damaged.push(id);
+    }
+  }
+
+  sh.getRange(i + 2, 4, 1, 3).setValues([[now, downs, JSON.stringify(damage)]]);
+  return { before: before, now: now, damaged: damaged.length };
+}
+
+// 傷める順番に並べたアイテムのうち、まだ傷めきっていない最初の1つを1段階傷める
+function damageOne(name, picks, equip, damage) {
+  const defaults = DEFAULT_ITEMS[name];
+  const order = [];
+  DAMAGE_ORDER.forEach(slot => order.push(equip[slot] || defaults[slot]));
+  Object.keys(picks).sort((a, b) => b - a).forEach(lv => order.push(picks[lv]));  // 新しく手に入れたものから
+  Object.keys(defaults).forEach(slot => order.push(defaults[slot]));
+
+  const isDefault = id => Object.values(defaults).includes(id);
+  for (const id of order) {
+    if (!id || id === "none") continue;
+    const max = isDefault(id) ? 2 : 3;  // 最初から持っているものは、なくならない
+    if ((damage[id] || 0) < max) {
+      damage[id] = (damage[id] || 0) + 1;
+      return id;
+    }
+  }
+  return null;
 }
 
 
@@ -114,12 +192,13 @@ function handleEvent(ev) {
   }
 
   saveWeight(name, kg);
-  reply(ev.replyToken, resultMessage(name, kg));
+  const level = updateLevel(name);
+  reply(ev.replyToken, resultMessage(name, kg, level));
 }
 
 
 // ===== 返信の文 =====
-function resultMessage(name, kg) {
+function resultMessage(name, kg, level) {
   const p = PEOPLE[name];
   const left = kg - p.goal;
   const lost = p.start - kg;
@@ -130,6 +209,13 @@ function resultMessage(name, kg) {
     "スタートから " + (lost >= 0 ? "-" : "+") + Math.abs(lost).toFixed(1) + "kg",
     left <= 0 ? "目標クリア！" : "目標まであと " + left.toFixed(1) + "kg（残り" + days + "日）"
   ];
+
+  if (level && level.before !== null && level.now < level.before) {
+    lines.push("", "リバウンドで Lv." + level.before + " → Lv." + level.now + " に下がりました");
+    if (level.damaged) lines.push("持っているアイテムが傷んでしまいました…（サイトのキャラで確認できます）");
+  } else if (level && level.before !== null && level.now > level.before) {
+    lines.push("", "Lv." + level.before + " → Lv." + level.now + " にアップ！");
+  }
 
   const partner = name === "Emi" ? "Manato" : "Emi";
   lines.push(hasRecordToday(partner) ? partner + "さんも今日記録済み" : partner + "さんは今日まだです");

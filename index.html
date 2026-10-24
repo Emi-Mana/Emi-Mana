@@ -186,6 +186,7 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
 .opt.on { border-color: var(--sand); background: var(--sand); color: var(--surface); }
 .opt:disabled { color: var(--muted); opacity: 0.6; cursor: default; }
 .gift { border-color: var(--sand); }
+.damage-note { background: var(--sand-soft); border-radius: var(--radius); padding: 10px 12px; font-size: 0.8rem; line-height: 1.7; }
 .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .choice { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 6px; font: inherit; color: inherit;
   cursor: pointer; display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0; }
@@ -284,6 +285,7 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
       <div class="bar exp"><span id="expBar" style="width:0%"></span></div>
       <div class="muted num" id="expText"></div>
       <div class="stats num" id="charaStats"></div>
+      <div class="damage-note" id="damageNote" hidden></div>
     </div>
     <div class="card gift" id="giftCard"></div>
     <div class="card" id="dressCard">
@@ -423,7 +425,7 @@ let cheers = [];                          // [{at, from, to, text}] 新しい順
 let sendingCheer = false;                 // 送信中は「送る」を押せないようにする
 let view = load("view", "emi");            // グラフで見る人
 let rewards = {};                         // { "2026-10": "ごほうびの文" }
-let avatars = { emi: { picks: {}, equip: {} }, manato: { picks: {}, equip: {} } };  // 受け取ったアイテムと着ているもの
+let avatars = { emi: { picks: {}, equip: {}, damage: {} }, manato: { picks: {}, equip: {}, damage: {} } };  // 受け取ったアイテムと着ているもの
 let chosen = -1;                          // 受け取り画面で選んでいる番号
 let advice = {};                          // { Emi: {state, label, tip}, Manato: {...} }
 let me = load("me", "");                  // このスマホの持ち主
@@ -618,7 +620,11 @@ function downloadCsv() {
 
 // ===== キャラクター =====
 function styleOf(key) {
-  return equippedStyle(key, avatars[key].picks, avatars[key].equip);
+  const style = equippedStyle(key, avatars[key].picks, avatars[key].equip, avatars[key].damage);
+  // 体重が増えている日は、しょんぼり顔
+  const a = advice[PEOPLE[key].name];
+  if (a && a.state === "up") style.mood = "sad";
+  return style;
 }
 
 // ホームの「ふたりのパーティ」
@@ -652,11 +658,20 @@ function renderChara(sv) {
   $("expText").textContent = lv >= 100 ? (isEmi ? "♡ 目標達成。おめでとう！" : "LEVEL MAX！ 目標達成")
     : (isEmi ? "♡ 次のレベルまで あと " + left + "kg" : "NEXT Lv." + (lv + 1) + " まで EXP あと " + left + "kg");
 
-  // ステータス：選んだ方向性の数で伸びる
+  // ステータス：選んだ方向性の数で伸び、リバウンドの傷みで下がる
   const counts = directionCounts(key, avatars[key].picks);
+  const hurt = totalDamage(avatars[key].damage);
   $("charaStats").innerHTML = DIRECTIONS[key].map((name, i) =>
-    '<div class="stat"><span class="muted">' + name + "</span><b>" +
-    (isEmi ? "♡" + counts[i] : 50 + lv * 3 + counts[i] * 25) + "</b></div>").join("");
+    '<div class="stat"><span class="muted">' + name + "</span><b>" + (isEmi ? "♡" : "") +
+    Math.max(lv * 2 + counts[i] * 20 - hurt * 12, 0) + "</b></div>").join("");
+
+  // リバウンドで傷んだアイテム
+  const damaged = Object.keys(avatars[key].damage || {}).filter(id => avatars[key].damage[id] > 0);
+  $("damageNote").hidden = !damaged.length;
+  $("damageNote").textContent = damaged.length
+    ? "リバウンドで傷んだもの：" + damaged.map(id => itemName(key, id) + "（" + DAMAGE_LABEL[Math.min(avatars[key].damage[id], 3)] + "）").join("、") +
+      "。傷みはレベルが戻っても元に戻りません。"
+    : "";
 
   renderGift(key, lv);
   renderDress(key);
@@ -712,12 +727,14 @@ function renderDress(key) {
   else $("dressNote").textContent = "選んだアイテムと着せ替えは、相手のスマホにも表示されます。";
   if (!mine) return;
 
-  const owned = ownedItems(key, avatars[key].picks);
+  const damage = avatars[key].damage || {};
+  const owned = ownedItems(key, avatars[key].picks, damage);
   const style = styleOf(key);
   $("dressSlots").innerHTML = Object.keys(owned).map(slot =>
     '<div class="slot"><span class="muted">' + SLOT_LABEL[key][slot] + '</span><div class="options">' +
     owned[slot].map(item => '<button class="opt' + (style[slot] === item.id ? " on" : "") + '" type="button" data-slot="' + slot +
-      '" data-id="' + item.id + '">' + item.name + "</button>").join("") + "</div></div>"
+      '" data-id="' + item.id + '">' + item.name + (damage[item.id] ? "（" + DAMAGE_LABEL[damage[item.id]] + "）" : "") +
+      "</button>").join("") + "</div></div>"
   ).join("");
 }
 
@@ -730,7 +747,8 @@ function renderStoryLog(key) {
     const item = s.items.find(i => i.id === picks[s.lv]);
     if (!item) return;
     const li = document.createElement("li");
-    li.textContent = "Lv." + s.lv + "「" + s.title + "」 " + item.name;
+    const hurt = (avatars[key].damage || {})[item.id];
+    li.textContent = "Lv." + s.lv + "「" + s.title + "」 " + item.name + (hurt ? "（" + DAMAGE_LABEL[Math.min(hurt, 3)] + "）" : "");
     list.appendChild(li);
   });
   if (!list.children.length) list.innerHTML = '<li class="muted">Lv.25 から物語がはじまります</li>';
@@ -997,7 +1015,7 @@ async function loadData() {
 
     for (const name in data.avatars || {}) {
       const a = data.avatars[name];
-      avatars[name.toLowerCase()] = { picks: a.picks || {}, equip: a.equip || {} };
+      avatars[name.toLowerCase()] = { picks: a.picks || {}, equip: a.equip || {}, damage: a.damage || {} };
     }
 
     $("loadNotice").hidden = true;

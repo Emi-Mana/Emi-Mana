@@ -224,6 +224,26 @@ function chapterOf(key, lv) {
 }
 
 
+// ===== リバウンドの傷み =====
+// damage は { アイテムのid: 段階 }。1=よごれ、2=ぼろぼろ、3=なくした（Apps Script が体重の記録のときに決める）
+const DAMAGE_LABEL = ["", "よごれ", "ぼろぼろ", "なくした"];
+
+// アイテムのidから名前を探す
+function itemName(key, id) {
+  for (const slot in DEFAULTS[key]) if (DEFAULTS[key][slot].id === id) return DEFAULTS[key][slot].name;
+  for (const s of STORY[key]) {
+    const item = s.items.find(i => i.id === id);
+    if (item) return item.name;
+  }
+  return FINAL_BONUS.id === id ? FINAL_BONUS.name : id;
+}
+
+// 傷みの合計（ステータスが下がる）
+function totalDamage(damage) {
+  return Object.values(damage || {}).reduce((sum, n) => sum + n, 0);
+}
+
+
 // ===== アイテムの受け取り =====
 // picks は { "25": "apron", "30": "straw", ... }（レベル → 選んだアイテムのid）
 
@@ -238,15 +258,16 @@ function nextStoryLevel(key, lv) {
   return next ? next.lv : null;
 }
 
-// 場所ごとに、持っているアイテムの一覧（最初から持っているもの＋受け取ったもの）
-function ownedItems(key, picks) {
+// 場所ごとに、持っているアイテムの一覧（最初から持っているもの＋受け取ったもの）。なくしたものは入れない
+function ownedItems(key, picks, damage) {
+  damage = damage || {};
   const owned = {};
   for (const slot in SLOT_LABEL[key]) owned[slot] = [DEFAULTS[key][slot]];
   STORY[key].forEach(s => {
     const item = s.items.find(i => i.id === picks[s.lv]);
-    if (item) owned[s.slot].push(item);
+    if (item && (damage[item.id] || 0) < 3) owned[s.slot].push(item);
   });
-  if (picks[100]) owned[FINAL_BONUS.slot].push(FINAL_BONUS);
+  if (picks[100] && (damage[FINAL_BONUS.id] || 0) < 3) owned[FINAL_BONUS.slot].push(FINAL_BONUS);
   // 頭や持ち物は「なし」も選べるようにする
   ["head", "side", "hand"].forEach(slot => {
     if (owned[slot] && !owned[slot].some(i => i.id === "none")) owned[slot].push({ id: "none", name: "なし" });
@@ -254,13 +275,16 @@ function ownedItems(key, picks) {
   return owned;
 }
 
-// 着ているもの。持っていないものは、最初の服にもどす
-function equippedStyle(key, picks, equip) {
-  const owned = ownedItems(key, picks);
-  const style = {};
+// 着ているもの。持っていないもの（なくしたもの）は、最初の服にもどす
+// style.damage には、場所ごとの傷みの段階を入れる（絵でぼろぼろに描くため）
+function equippedStyle(key, picks, equip, damage) {
+  damage = damage || {};
+  const owned = ownedItems(key, picks, damage);
+  const style = { damage: {} };
   for (const slot in owned) {
     const want = (equip || {})[slot];
     style[slot] = owned[slot].some(i => i.id === want) ? want : DEFAULTS[key][slot].id;
+    style.damage[slot] = damage[style[slot]] || 0;
   }
   return style;
 }

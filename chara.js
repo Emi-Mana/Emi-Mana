@@ -46,14 +46,18 @@ function armsSVG(who, color, len) {
 }
 
 // ===== 顔（丸い頭・点の目） =====
-function faceSVG(who) {
+function faceSVG(who, sad) {
   return `<circle cx="55" cy="96" r="7" fill="${SKIN}"/><circle cx="145" cy="96" r="7" fill="${SKIN}"/>
     <ellipse cx="100" cy="88" rx="46" ry="44" fill="${SKIN}"/>
     <ellipse cx="84" cy="96" rx="5" ry="6.5" fill="#3A2A22"/><circle cx="86" cy="93.5" r="1.8" fill="#fff"/>
     <ellipse cx="116" cy="96" rx="5" ry="6.5" fill="#3A2A22"/><circle cx="118" cy="93.5" r="1.8" fill="#fff"/>
     <ellipse cx="74" cy="107" rx="6" ry="3.5" fill="#F2A79C" opacity="0.6"/>
     <ellipse cx="126" cy="107" rx="6" ry="3.5" fill="#F2A79C" opacity="0.6"/>
-    <path d="M94 111 Q100 117 106 111" fill="none" stroke="#7A4A3A" stroke-width="2" stroke-linecap="round"/>`;
+    ${sad
+      ? `<path d="M94 114 Q100 109 106 114" fill="none" stroke="#7A4A3A" stroke-width="2" stroke-linecap="round"/>
+        <path d="M77 85 L90 81 M123 85 L110 81" stroke="#5A3A2E" stroke-width="2" stroke-linecap="round"/>
+        <path d="M140 66 Q146 76 140 80 Q134 76 140 66 Z" fill="#9CC4E4"/>`
+      : `<path d="M94 111 Q100 117 106 111" fill="none" stroke="#7A4A3A" stroke-width="2" stroke-linecap="round"/>`}`;
 }
 
 
@@ -461,6 +465,43 @@ function background(id, uid) {
 }
 
 
+// ===== リバウンドの傷み =====
+// 段階 1=よごれ（色がくすんでシミ）、2=ぼろぼろ（さらにくすんで、やぶれとつぎはぎ）
+// 3=なくした は、そもそも着られないので描かない
+function wearFilter(uid) {
+  return `<defs><filter id="worn1${uid}"><feColorMatrix type="saturate" values="0.55"/></filter>
+    <filter id="worn2${uid}"><feColorMatrix type="saturate" values="0.3"/></filter></defs>`;
+}
+
+// 傷んだものを、くすんだ色にする
+function worn(svg, stage, uid) {
+  return stage ? `<g filter="url(#worn${Math.min(stage, 2)}${uid})">${svg}</g>` : svg;
+}
+
+const stain = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.7}" fill="#6A5038" opacity="0.35"/>`;
+const tear = (x, y) => `<path d="M${x} ${y} l3 4 l-3 4 l3 4 l-3 4" stroke="#3A2A22" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+const patch = (x, y) => `<rect x="${x}" y="${y}" width="12" height="10" fill="#B8A27E" transform="rotate(-8 ${x + 6} ${y + 5})"/>
+  <rect x="${x + 1}" y="${y + 1}" width="10" height="8" fill="none" stroke="#6A5038" stroke-width="0.8" stroke-dasharray="2 1.5" transform="rotate(-8 ${x + 6} ${y + 5})"/>`;
+
+// 場所ごとの、シミ・やぶれ・つぎはぎ
+function wearMarks(slot, stage) {
+  if (!stage) return "";
+  const marks = {
+    outfit: [stain(84, 168, 6) + stain(114, 192, 7) + stain(96, 206, 4),
+      tear(80, 176) + tear(118, 160) + patch(100, 186) + stain(70, 190, 5) +
+      `<path d="M70 208 L74 214 L78 208 L82 214 L86 208 M114 208 L118 214 L122 208 L126 214 L130 208" stroke="#3A2A22" stroke-width="1.2" fill="none"/>`],
+    head: [stain(92, 34, 4) + stain(112, 40, 3), stain(92, 34, 4) + tear(118, 30) + patch(78, 32)],
+    side: [stain(60, 204, 4), stain(60, 204, 4) + tear(66, 192)],
+    hand: [stain(136, 216, 4), stain(136, 216, 4) + tear(132, 206)],
+    hair: [`<path d="M60 60 l-8 -6 M140 58 l8 -6 M100 34 l0 -8" stroke="#3B2A24" stroke-width="2" stroke-linecap="round"/>`,
+      `<path d="M60 60 l-8 -6 M140 58 l8 -6 M100 34 l0 -8 M80 38 l-5 -7 M120 38 l5 -7 M56 80 l-8 0 M144 80 l8 0" stroke="#3B2A24" stroke-width="2" stroke-linecap="round"/>`],
+    bg: [`<rect width="200" height="260" fill="#4A3A2A" opacity="0.15"/>`,
+      `<rect width="200" height="260" fill="#4A3A2A" opacity="0.3"/><path d="M10 20 l20 14 l-6 18 M190 40 l-16 10 l4 16 M20 230 l18 -8" stroke="#2A1A10" stroke-width="1.2" fill="none" opacity="0.5"/>`]
+  };
+  return (marks[slot] || [])[Math.min(stage, 2) - 1] || "";
+}
+
+
 // ===== キャラ全体を組み立てる =====
 function drawCharacter(who, style, uid) {
   style = style || {};
@@ -477,12 +518,22 @@ function drawCharacter(who, style, uid) {
   // 相棒のうち、足もとにいるものは体の後ろ、肩や手にあるものは前に描く
   const sideBehind = ["kitten", "chalkboard", "crab", "turtle"].includes(style.side);
 
+  // リバウンドで傷んだもの（場所ごとの段階）
+  const d = style.damage || {};
+  const sidePart = worn(side, d.side, uid) + wearMarks("side", d.side);
+  const cape = worn(o.back || "", d.outfit, uid);
+  const body = worn(o.legs + o.body, d.outfit, uid) + wearMarks("outfit", d.outfit);
+
   return `<svg viewBox="0 0 200 260" class="chara-svg" role="img" aria-label="${isEmi ? "Emi" : "Manato"}のキャラクター">
-    ${background(style.bg, uid)}
+    ${wearFilter(uid)}
+    ${worn(background(style.bg, uid), d.bg, uid)}${wearMarks("bg", d.bg)}
     <ellipse cx="100" cy="244" rx="46" ry="6" fill="#000" opacity="0.12"/>
-    ${sideBehind ? side : ""}
-    ${o.back || ""}${h.back}${NECK}${o.legs}${o.body}${hand}${o.arms}
-    ${sideBehind ? "" : side}
-    ${faceSVG(who)}${h.front}${head}
+    ${sideBehind ? sidePart : ""}
+    ${cape}${worn(h.back, d.hair, uid)}${NECK}${body}
+    ${worn(hand, d.hand, uid)}${wearMarks("hand", d.hand)}
+    ${worn(o.arms, d.outfit, uid)}
+    ${sideBehind ? "" : sidePart}
+    ${faceSVG(who, style.mood === "sad")}${worn(h.front, d.hair, uid)}${wearMarks("hair", d.hair)}
+    ${worn(head, d.head, uid)}${wearMarks("head", d.head)}
   </svg>`;
 }
