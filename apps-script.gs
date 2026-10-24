@@ -133,6 +133,56 @@ function updateLevel(name) {
   return { before: before, now: now, damaged: damaged.length };
 }
 
+// ===== 過去の記録からやり直す =====
+// エディタで rebuildManato（または rebuildEmi）を選んで「実行」する
+// 過去の記録を古い順にたどって、レベルダウンと傷みを最初から計算し直す（何回実行しても同じ結果になる）
+function rebuildManato() { Logger.log(JSON.stringify(rebuildLevel("Manato"))); }
+function rebuildEmi() { Logger.log(JSON.stringify(rebuildLevel("Emi"))); }
+
+function rebuildLevel(name) {
+  const list = rows("記録", ["日付", "名前", "体重"]).filter(r => r[1] === name)
+    .map(r => ({ date: r[0], kg: Number(r[2]) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (!list.length) return null;
+
+  const sh = sheet("アバター", AVATAR_HEADER);
+  sh.getRange(1, 1, 1, AVATAR_HEADER.length).setValues([AVATAR_HEADER]);
+  let i = rows("アバター", AVATAR_HEADER).findIndex(r => r[0] === name);
+  if (i < 0) { sh.appendRow([name, "{}", "{}"]); i = rows("アバター", AVATAR_HEADER).length - 1; }
+  const r = rows("アバター", AVATAR_HEADER)[i];
+  const parse = v => { try { return JSON.parse(v || "{}"); } catch (err) { return {}; } };
+  const allPicks = parse(r[1]), allEquip = parse(r[2]);
+
+  const p = PEOPLE[name];
+  let before = null, downs = 0, peak = 0;
+  const damage = {}, history = [];
+
+  list.forEach((e, n) => {
+    // その日までの7日平均からレベルを出す
+    const week = list.slice(0, n + 1).filter(x => (new Date(e.date) - new Date(x.date)) / 86400000 < 7);
+    const avg = week.reduce((s, x) => s + x.kg, 0) / week.length;
+    const lv = Math.min(Math.max(Math.floor(20 + 80 * (p.start - avg) / (p.start - p.goal)), 1), 100);
+    peak = Math.max(peak, lv);
+
+    if (before !== null && lv < before) {
+      // その時点で手に入れていたアイテムだけを傷める
+      const picks = {}, equip = {};
+      Object.keys(allPicks).forEach(k => { if (Number(k) <= peak) picks[k] = allPicks[k]; });
+      const owned = Object.values(picks);
+      Object.keys(allEquip).forEach(slot => { if (owned.includes(allEquip[slot])) equip[slot] = allEquip[slot]; });
+
+      const oldSteps = Math.floor(downs / DAMAGE_STEP);
+      downs += before - lv;
+      for (let k = Math.floor(downs / DAMAGE_STEP) - oldSteps; k > 0; k--) damageOne(name, picks, equip, damage);
+      history.push(e.date + " Lv." + before + "→" + lv);
+    }
+    before = lv;
+  });
+
+  sh.getRange(i + 2, 4, 1, 3).setValues([[before, downs, JSON.stringify(damage)]]);
+  return { level: before, downs: downs, damage: damage, levelDowns: history };
+}
+
+
 // 傷める順番に並べたアイテムのうち、まだ傷めきっていない最初の1つを1段階傷める
 function damageOne(name, picks, equip, damage) {
   const defaults = DEFAULT_ITEMS[name];
