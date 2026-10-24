@@ -127,6 +127,12 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
 .stat + .stat { border-left: 1px solid var(--line); }
 .stat b { display: block; font-family: var(--font-latin); font-size: 1.3rem; font-weight: 500; }
 .chart { width: 100%; height: auto; display: block; }
+.table-wrap { overflow-x: auto; }
+.daily { width: 100%; border-collapse: collapse; font-size: 0.82rem; white-space: nowrap; }
+.daily th { font-weight: 500; color: var(--muted); font-size: 0.72rem; text-align: right; padding: 6px 6px; border-bottom: 1px solid var(--line); }
+.daily td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.daily th:first-child, .daily td:first-child, .daily th:nth-child(2), .daily td:nth-child(2) { text-align: left; }
+.daily .ok { color: var(--good); }
 .chart text { fill: var(--muted); font-size: 10px; font-family: var(--font-body); }
 
 /* 履歴とエール */
@@ -318,6 +324,19 @@ textarea.field { width: 100%; box-sizing: border-box; resize: none; height: 72px
     </div>
     <div class="card" id="personCard"></div>
     <div class="muted">判定は7日平均。点線は12/31に間に合うペースです。</div>
+    <div class="card">
+      <div class="row spread">
+        <div><div class="eyebrow">Daily</div><h2>毎日の記録</h2></div>
+        <button class="btn-ghost" id="csvBtn" type="button">CSVで保存</button>
+      </div>
+      <div class="table-wrap">
+        <table class="daily num">
+          <thead><tr><th>日付</th><th>名前</th><th>体重</th><th>月の目標まで</th><th>クリアまで</th></tr></thead>
+          <tbody id="dailyBody"></tbody>
+        </table>
+      </div>
+      <div class="muted" id="dailyNote"></div>
+    </div>
   </main>
 
   <!-- タブ：カレンダーとごほうび -->
@@ -461,6 +480,7 @@ function render() {
   renderTicket(s);
   renderToday();
   renderPerson(view, s[view]);
+  renderDaily();
   renderParty(s);
   renderChara(s[view]);
   renderFood();
@@ -548,6 +568,53 @@ function chartSvg(key) {
     '<text x="' + L + '" y="' + (H - 6) + '">' + shortDate(START) + "</text>" +
     '<text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + shortDate(END) + "</text></svg>";
 }
+
+// ===== 毎日の記録 =====
+// その日が入っている月の目標体重（毎月のごほうびの目安と同じ）
+function monthGoal(key, date) {
+  const m = MONTHS.find(m => date.slice(0, 7) === m.key) || (date < MONTHS[0].key ? MONTHS[0] : MONTHS[MONTHS.length - 1]);
+  return PEOPLE[key].start - m.lose;
+}
+
+// 「あと0.4kg」。届いていれば「達成」
+function leftText(kg, goal) {
+  const left = kg - goal;
+  return left <= 0 ? "達成" : "あと" + left.toFixed(1) + "kg";
+}
+
+// 1日1行のデータ（新しい順）
+function dailyRows(keys) {
+  const list = [];
+  keys.forEach(key => entries[key].forEach(e => list.push({
+    date: e.date, name: PEOPLE[key].name, kg: e.kg,
+    month: leftText(e.kg, monthGoal(key, e.date)), clear: leftText(e.kg, PEOPLE[key].goal)
+  })));
+  return list.sort((a, b) => (a.date === b.date ? (a.name < b.name ? -1 : 1) : (a.date < b.date ? 1 : -1)));
+}
+
+function renderDaily() {
+  const list = dailyRows([view]);
+  $("dailyBody").innerHTML = list.map(r =>
+    "<tr><td>" + shortDate(r.date) + '</td><td style="color:' + PEOPLE[view].color + '">' + r.name + "</td><td>" + r.kg.toFixed(1) + "kg</td>" +
+    '<td class="' + (r.month === "達成" ? "ok" : "") + '">' + r.month + "</td>" +
+    '<td class="' + (r.clear === "達成" ? "ok" : "") + '">' + r.clear + "</td></tr>").join("");
+  $("dailyNote").textContent = list.length
+    ? "「月の目標」は毎月のごほうびの目安、「クリア」は12/31の目標（" + PEOPLE[view].goal.toFixed(1) + "kg）です。"
+    : "まだ記録がありません。";
+}
+
+// 2人分の記録をCSVファイルで保存する（Excelやスプレッドシートで開ける）
+function downloadCsv() {
+  const lines = [["日付", "名前", "体重(kg)", "月の目標まで", "クリアまで"].join(",")];
+  dailyRows(Object.keys(PEOPLE)).forEach(r => lines.push([r.date, r.name, r.kg.toFixed(1), r.month, r.clear].join(",")));
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv" });  // 先頭の印は、Excelで文字化けしないため
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "emi-manato-weight-" + today() + ".csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 
 // ===== キャラクター =====
 function styleOf(key) {
@@ -875,6 +942,8 @@ $("cheerBtn").addEventListener("click", () => {
     renderCheers();
   });
 });
+
+$("csvBtn").addEventListener("click", downloadCsv);
 
 // 着せ替えを選ぶ
 $("dressSlots").addEventListener("click", ev => {
